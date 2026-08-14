@@ -11,7 +11,8 @@ Stack: Go, controller-runtime / kubebuilder
 - Keycloak Admin REST (or Crossplane provider-keycloak) for realm/client management (§5.4).
 
 ## Conventions
-- Conventional Commits; SemVer releases; container images/artifacts cosign-signed (once CI exists).
+- Conventional Commits; SemVer releases; container images/artifacts cosign-signed.
+- Releases: release-please in **PR-only mode** (release-type `go`). `release-please.yml` (push to main, `skip-github-release: true`) only maintains the Release PR; merging it runs `release.yml` (push to main), which creates the tag + GitHub Release and publishes the GHCR image (`ghcr.io/7k-inari/inari-operator`, cosign keyless + SBOM + SLSA) and CRD/install bundles. **No tag-push triggers.** Per-commit edge images are a separate CI workflow. Details: `docs/release.md`.
 - Write tests for new behavior; keep changes minimal and focused.
 - Canonical architecture & development plan: https://github.com/7K-Inari/inari-docs/blob/main/docs/architecture/inari-platform-plan.md (section references below point into it).
 

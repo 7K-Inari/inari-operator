@@ -1,0 +1,97 @@
+name: release
+
+# Detects the merged Release PR on push to main (release-please creates the tag
+# + GitHub Release here), then runs publish jobs. No tag-push triggers anywhere.
+# Per-commit edge images are published by a separate CI workflow, not here.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+      version: ${{ steps.rp.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: rp
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-pull-request: true
+
+  image:
+    needs: release
+    # No Go module/Dockerfile until operator code lands (M3-W1); gate until then.
+    if: needs.release.outputs.release_created == 'true' && hashFiles('go.mod') != '' && hashFiles('Dockerfile') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/7k-inari/inari-operator
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=raw,value=latest
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign image (keyless)
+        run: cosign sign --yes ghcr.io/7k-inari/inari-operator@${{ steps.build.outputs.digest }}
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/7k-inari/inari-operator@${{ steps.build.outputs.digest }}
+          artifact-name: inari-operator-${{ needs.release.outputs.version }}.sbom.spdx.json
+      - name: Upload SBOM to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag_name }}
+        run: gh release upload "$TAG" "inari-operator-${{ needs.release.outputs.version }}.sbom.spdx.json" --clobber
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/7k-inari/inari-operator
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  crd-bundle:
+    needs: release
+    # No CRDs/config manifests until the operator scaffold lands (M3-W1); gate until then.
+    if: needs.release.outputs.release_created == 'true' && hashFiles('config/crd/kustomization.yaml') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: kubernetes-sigs/kustomize@master
+        with:
+          kustomize-version: 5.x
+      - name: Build install bundle
+        run: |
+          kustomize build config/crd > inari-operator-crds.yaml
+          kustomize build config/default > inari-operator-install.yaml
+      - name: Upload bundles to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag_name }}
+        run: |
+          gh release upload "$TAG" inari-operator-crds.yaml inari-operator-install.yaml --clobber
