@@ -18,6 +18,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # PR-only gate: only a merged release-please Release PR may create a tag/Release.
+    # Without this, manifest mode with skip-github-pull-request would release on
+    # every push to main carrying conventional commits.
+    if: "startsWith(github.event.head_commit.message, 'chore(main): release')"
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
@@ -82,9 +86,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: kubernetes-sigs/kustomize@master
-        with:
-          kustomize-version: 5.x
+      - name: Install kustomize
+        run: |
+          curl -sLo kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz"
+          tar xzf kustomize.tar.gz
+          sudo mv kustomize /usr/local/bin/kustomize
+          kustomize version
       - name: Build install bundle
         run: |
           kustomize build config/crd > inari-operator-crds.yaml
