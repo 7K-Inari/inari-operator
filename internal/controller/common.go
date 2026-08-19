@@ -4,7 +4,10 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,6 +76,22 @@ func impersonatingClient(base client.Client, cfg *rest.Config, tenant platformv1
 		return nil, fmt.Errorf("build impersonating client for tenant %q: %w", tenant.TenantID, err)
 	}
 	return c, nil
+}
+
+// tenantChildName derives a stable, tenant-scoped name for cluster-scoped
+// child resources. The result is always a valid DNS-1123 subdomain (<= 63
+// chars); over-long combinations are truncated with a short content hash to
+// stay unique and deterministic.
+func tenantChildName(parts ...string) string {
+	s := strings.Join(parts, "-")
+	const maxName = 63
+	if len(s) <= maxName {
+		return s
+	}
+	sum := sha256.Sum256([]byte(s))
+	suffix := hex.EncodeToString(sum[:])[:8]
+	truncated := strings.TrimRight(s[:maxName-len(suffix)-1], "-.")
+	return truncated + "-" + suffix
 }
 
 // event emits an audit-friendly event on the object.

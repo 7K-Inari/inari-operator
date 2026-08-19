@@ -50,7 +50,7 @@ func (r *ArgoProjectReconciler) argoNS() string {
 }
 
 func argoProjectName(cr *platformv1alpha1.ArgoProject) string {
-	return fmt.Sprintf("tenant-%s-%s", cr.Spec.TenantID, cr.Name)
+	return tenantChildName("tenant", cr.Spec.TenantID, cr.Name)
 }
 
 func (r *ArgoProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

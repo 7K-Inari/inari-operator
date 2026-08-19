@@ -41,7 +41,7 @@ type CertIssuerReconciler struct {
 
 // clusterIssuerName derives a stable, tenant-scoped ClusterIssuer name.
 func clusterIssuerName(cr *platformv1alpha1.CertIssuer) string {
-	return fmt.Sprintf("tenant-%s-%s", cr.Spec.TenantID, cr.Name)
+	return tenantChildName("tenant", cr.Spec.TenantID, cr.Name)
 }
 
 func buildClusterIssuerSpec(cr *platformv1alpha1.CertIssuer) (map[string]any, error) {

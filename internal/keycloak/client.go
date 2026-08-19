@@ -277,44 +277,71 @@ func (c *Client) getToken(ctx context.Context) (string, error) {
 }
 
 func (c *Client) do(ctx context.Context, method, path string, in, out any) error {
+	// Retry once on 401: the cached token may have been invalidated early
+	// (e.g. Keycloak restart); drop it and re-authenticate.
+	for attempt := 0; ; attempt++ {
+		status, raw, err := c.doOnce(ctx, method, path, in, out)
+		if err != nil {
+			return err
+		}
+		if status == http.StatusUnauthorized && attempt == 0 {
+			c.invalidateToken()
+			continue
+		}
+		if status == http.StatusNotFound {
+			return errNotFound
+		}
+		if status < 200 || status >= 300 {
+			return &httpError{Status: status, Body: string(raw)}
+		}
+		return nil
+	}
+}
+
+// doOnce performs a single authenticated request. Transport/encode/decode
+// failures are returned as errors; any received HTTP response yields its
+// status and body with a nil error, and 2xx bodies are decoded into out.
+func (c *Client) doOnce(ctx context.Context, method, path string, in, out any) (int, []byte, error) {
 	var body io.Reader
 	if in != nil {
 		raw, err := json.Marshal(in)
 		if err != nil {
-			return err
+			return 0, nil, err
 		}
 		body = bytes.NewReader(raw)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 	if err != nil {
-		return err
+		return 0, nil, err
 	}
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	tok, err := c.getToken(ctx)
 	if err != nil {
-		return err
+		return 0, nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return 0, nil, err
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 
-	if resp.StatusCode == http.StatusNotFound {
-		return errNotFound
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &httpError{Status: resp.StatusCode, Body: string(raw)}
-	}
-	if out != nil && len(raw) > 0 {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && out != nil && len(raw) > 0 {
 		if err := json.Unmarshal(raw, out); err != nil {
-			return fmt.Errorf("decode response: %w", err)
+			return resp.StatusCode, nil, fmt.Errorf("decode response: %w", err)
 		}
 	}
-	return nil
+	return resp.StatusCode, raw, nil
+}
+
+// invalidateToken drops the cached token so the next request re-authenticates.
+func (c *Client) invalidateToken() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.token = ""
+	c.tokenExp = time.Time{}
 }
