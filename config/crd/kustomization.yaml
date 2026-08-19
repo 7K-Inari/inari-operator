@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - bases/platform.inari.io_keycloakrealms.yaml
+  - bases/platform.inari.io_keycloakclients.yaml
+  - bases/platform.inari.io_dnszones.yaml
+  - bases/platform.inari.io_dnsrecords.yaml
+  - bases/platform.inari.io_certissuers.yaml
+  - bases/platform.inari.io_argoprojects.yaml
+  - bases/platform.inari.io_tenantnamespaces.yaml
