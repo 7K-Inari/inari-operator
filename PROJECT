@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://json.schemastore.org/kubebuilder.json
+domain: inari.io
+layout:
+- go.kubebuilder.io/v4
+projectName: inari-operator
+repo: github.com/7k-inari/inari-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: inari.io
+  group: platform
+  kind: KeycloakRealm
+  path: github.com/7k-inari/inari-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: inari.io
+  group: platform
+  kind: KeycloakClient
+  path: github.com/7k-inari/inari-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: inari.io
+  group: platform
+  kind: DNSZone
+  path: github.com/7k-inari/inari-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: inari.io
+  group: platform
+  kind: DNSRecord
+  path: github.com/7k-inari/inari-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: inari.io
+  group: platform
+  kind: CertIssuer
+  path: github.com/7k-inari/inari-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: inari.io
+  group: platform
+  kind: ArgoProject
+  path: github.com/7k-inari/inari-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: inari.io
+  group: platform
+  kind: TenantNamespace
+  path: github.com/7k-inari/inari-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"
