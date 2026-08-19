@@ -11,7 +11,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	platformv1alpha1 "github.com/7k-inari/inari-operator/api/v1alpha1"
-	"github.com/7k-inari/inari-operator/internal/keycloak"
 )
 
 func reconcileTwice(t *testing.T, rec interface {
@@ -79,15 +78,27 @@ func TestKeycloakRealmLifecycle(t *testing.T) {
 
 func TestKeycloakClientLifecycleAndSecret(t *testing.T) {
 	fk, kc := newFakeKC(t)
-	if _, err := kc.EnsureRealm(context.Background(), keycloak.RealmRepresentation{Realm: "tenant-b", Enabled: true}); err != nil {
-		t.Fatal(err)
-	}
 	r := &KeycloakClientReconciler{Client: testClient, Scheme: testScheme, Recorder: newRecorder(), RESTConfig: testCfg, Keycloak: kc}
 
 	// tenant namespace must exist for the secret write
 	if err := testClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "tenant-b"}}); err != nil {
 		t.Fatal(err)
 	}
+
+	// The referenced realm CR must exist and be Ready before the client is
+	// provisioned.
+	realm := &platformv1alpha1.KeycloakRealm{
+		ObjectMeta: metav1.ObjectMeta{Name: "tenant-b-realm", Namespace: ns(t)},
+		Spec: platformv1alpha1.KeycloakRealmSpec{
+			TenantReference: platformv1alpha1.TenantReference{TenantID: "tenant-b", Namespace: "tenant-b"},
+			Enabled:         true,
+		},
+	}
+	if err := testClient.Create(context.Background(), realm); err != nil {
+		t.Fatal(err)
+	}
+	rr := &KeycloakRealmReconciler{Client: testClient, Scheme: testScheme, Recorder: newRecorder(), Keycloak: kc}
+	reconcileTwice(t, rr, types.NamespacedName{Name: realm.Name, Namespace: realm.Namespace})
 
 	kcr := &platformv1alpha1.KeycloakClient{
 		ObjectMeta: metav1.ObjectMeta{Name: "app", Namespace: ns(t)},

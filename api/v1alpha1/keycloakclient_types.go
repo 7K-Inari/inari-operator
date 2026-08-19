@@ -49,6 +49,11 @@ type KeycloakClientStatus struct {
 	// +optional
 	ClientID string `json:"clientID,omitempty"`
 
+	// Realm is the Keycloak realm the client was provisioned into. Recorded
+	// so teardown targets the right realm even if the realm CR is gone.
+	// +optional
+	Realm string `json:"realm,omitempty"`
+
 	// SecretName is the tenant-namespace Secret holding credentials.
 	// +optional
 	SecretName string `json:"secretName,omitempty"`

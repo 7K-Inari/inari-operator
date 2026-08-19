@@ -140,6 +140,12 @@ func (c *Client) EnsureClient(ctx context.Context, realm string, rep ClientRepre
 		if existing == nil {
 			return nil, fmt.Errorf("client %q not found after create", rep.ClientID)
 		}
+	} else if clientDrifted(existing, rep) {
+		rep.ID = existing.ID
+		path := "/admin/realms/" + url.PathEscape(realm) + "/clients/" + existing.ID
+		if err := c.do(ctx, http.MethodPut, path, rep, nil); err != nil {
+			return nil, fmt.Errorf("update client %q: %w", rep.ClientID, err)
+		}
 	}
 	res.ID = existing.ID
 
@@ -167,6 +173,25 @@ func (c *Client) DeleteClient(ctx context.Context, realm, clientID string) error
 		return fmt.Errorf("delete client %q: %w", clientID, err)
 	}
 	return nil
+}
+
+// clientDrifted reports whether the stored client differs from the desired
+// representation on the fields we manage.
+func clientDrifted(existing *ClientRepresentation, rep ClientRepresentation) bool {
+	if existing.PublicClient != rep.PublicClient ||
+		existing.ServiceAccountsEnabled != rep.ServiceAccountsEnabled ||
+		existing.StandardFlowEnabled != rep.StandardFlowEnabled {
+		return true
+	}
+	if len(existing.RedirectURIs) != len(rep.RedirectURIs) {
+		return true
+	}
+	for i := range rep.RedirectURIs {
+		if existing.RedirectURIs[i] != rep.RedirectURIs[i] {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Client) findClient(ctx context.Context, realm, clientID string) (*ClientRepresentation, error) {

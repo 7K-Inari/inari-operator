@@ -3,8 +3,11 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,19 +51,32 @@ func (r *KeycloakClientReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		clientID = kc.Name
 	}
 
-	var realm platformv1alpha1.KeycloakRealm
+	// Resolve the target realm from the referenced KeycloakRealm's spec
+	// (deterministic, independent of reconcile ordering). Never fall back to
+	// the tenant ID here: provisioning into an ambient fallback realm would
+	// put the client in the wrong realm and leak it on teardown.
 	realmName := ""
-	realmKey := types.NamespacedName{Namespace: kc.Namespace, Name: kc.Spec.RealmRef}
-	if err := r.Get(ctx, realmKey, &realm); err == nil {
-		realmName = realm.Status.Realm
+	if kc.Status.Realm != "" {
+		realmName = kc.Status.Realm
 	}
-	if realmName == "" {
-		realmName = kc.Spec.TenantID
+	var realm platformv1alpha1.KeycloakRealm
+	realmKey := types.NamespacedName{Namespace: kc.Namespace, Name: kc.Spec.RealmRef}
+	realmReady := false
+	if err := r.Get(ctx, realmKey, &realm); err == nil {
+		if realmName == "" {
+			realmName = realm.Spec.Realm
+			if realmName == "" {
+				realmName = realm.Spec.TenantID
+			}
+		}
+		realmReady = meta.IsStatusConditionTrue(realm.Status.Conditions, platformv1alpha1.ConditionReady)
+	} else if !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, err
 	}
 
 	if !kc.DeletionTimestamp.IsZero() {
 		deleted, err := finalize(ctx, r.Client, &kc, func(ctx context.Context) error {
-			if r.Keycloak != nil {
+			if r.Keycloak != nil && realmName != "" {
 				if err := r.Keycloak.DeleteClient(ctx, realmName, clientID); err != nil {
 					return err
 				}
@@ -96,6 +112,20 @@ func (r *KeycloakClientReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if r.Keycloak == nil {
 		return ctrl.Result{}, fmt.Errorf("keycloak client not configured")
+	}
+
+	// Wait for the referenced realm to exist and be ready before provisioning.
+	if realmName == "" {
+		platformv1alpha1.SetFailed(&kc.Status.Conditions, kc.Generation,
+			fmt.Sprintf("referenced KeycloakRealm %q not found", kc.Spec.RealmRef))
+		_ = r.Status().Update(ctx, &kc)
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if !realmReady && kc.Status.Realm == "" {
+		platformv1alpha1.SetReconciling(&kc.Status.Conditions, kc.Generation,
+			fmt.Sprintf("waiting for KeycloakRealm %q to become ready", kc.Spec.RealmRef))
+		_ = r.Status().Update(ctx, &kc)
+		return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
 	}
 
 	res, err := r.Keycloak.EnsureClient(ctx, realmName, keycloak.ClientRepresentation{
@@ -147,6 +177,7 @@ func (r *KeycloakClientReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	kc.Status.ClientID = clientID
 	kc.Status.SecretName = secretName
+	kc.Status.Realm = realmName
 	kc.Status.ObservedGeneration = kc.Generation
 	platformv1alpha1.SetReady(&kc.Status.Conditions, kc.Generation,
 		platformv1alpha1.ReasonReady, fmt.Sprintf("client %q provisioned in realm %q", clientID, realmName))

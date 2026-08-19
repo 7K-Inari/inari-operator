@@ -178,6 +178,11 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              realm:
+                description: Realm is the Keycloak realm the client was provisioned
+                  into. Recorded so teardown targets the right realm even if the
+                  realm CR is gone.
+                type: string
               secretName:
                 description: SecretName is the tenant-namespace Secret holding credentials.
                 type: string
