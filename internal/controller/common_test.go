@@ -35,7 +35,9 @@ func TestTenantChildName(t *testing.T) {
 		t.Fatal("duplicate short name?")
 	}
 	// Deterministic
-	if tenantChildName("tenant", long, "x") != tenantChildName("tenant", long, "x") {
+	first := tenantChildName("tenant", long, "x")
+	second := tenantChildName("tenant", long, "x")
+	if first != second {
 		t.Fatal("not deterministic")
 	}
 	// Distinct inputs must not collide after truncation
