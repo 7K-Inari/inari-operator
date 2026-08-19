@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	testEnv   *envtest.Environment
-	testCfg   *rest.Config
+	testEnv    *envtest.Environment
+	testCfg    *rest.Config
 	testClient client.Client
 	testScheme *runtime.Scheme
 )

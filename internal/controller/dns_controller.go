@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -125,7 +127,11 @@ func (r *DNSRecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.Get(ctx, types.NamespacedName{Namespace: rec.Namespace, Name: rec.Spec.ZoneRef}, &zone); err != nil {
 		platformv1alpha1.SetFailed(&rec.Status.Conditions, rec.Generation, "referenced DNSZone not found")
 		_ = r.Status().Update(ctx, &rec)
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			// Zone may appear later; poll until it does.
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		return ctrl.Result{}, err
 	}
 
 	for _, ep := range rec.Spec.Endpoints {
@@ -160,10 +166,10 @@ func (r *DNSRecordReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				targets = append(targets, t)
 			}
 			eps = append(eps, map[string]any{
-				"dnsName":       e.DNSName,
-				"recordType":    e.RecordType,
-				"targets":       targets,
-				"recordTTL":     e.TTL,
+				"dnsName":    e.DNSName,
+				"recordType": e.RecordType,
+				"targets":    targets,
+				"recordTTL":  e.TTL,
 			})
 		}
 		return unstructured.SetNestedSlice(endpoint.Object, eps, "spec", "endpoints")

@@ -22,8 +22,8 @@ import (
 // KeycloakClientReconciler reconciles KeycloakClient Catalog Items (§5.4/§5.6).
 type KeycloakClientReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	Recorder  record.EventRecorder
+	Scheme     *runtime.Scheme
+	Recorder   record.EventRecorder
 	RESTConfig *rest.Config
 
 	Keycloak *keycloak.Client
@@ -33,6 +33,7 @@ type KeycloakClientReconciler struct {
 // +kubebuilder:rbac:groups=platform.inari.io,resources=keycloakclients/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=platform.inari.io,resources=keycloakclients/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=impersonate
 
 func (r *KeycloakClientReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)

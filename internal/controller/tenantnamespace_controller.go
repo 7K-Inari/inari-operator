@@ -180,12 +180,20 @@ func (r *TenantNamespaceReconciler) reconcileQuota(ctx context.Context, tn *plat
 		rq.Labels[tenantLabel] = tn.Spec.TenantID
 		hard := corev1.ResourceList{}
 		if tn.Spec.ResourceQuota.CPU != "" {
-			hard[corev1.ResourceRequestsCPU] = resource.MustParse(tn.Spec.ResourceQuota.CPU)
-			hard[corev1.ResourceLimitsCPU] = resource.MustParse(tn.Spec.ResourceQuota.CPU)
+			q, err := resource.ParseQuantity(tn.Spec.ResourceQuota.CPU)
+			if err != nil {
+				return fmt.Errorf("invalid resourceQuota.cpu %q: %w", tn.Spec.ResourceQuota.CPU, err)
+			}
+			hard[corev1.ResourceRequestsCPU] = q
+			hard[corev1.ResourceLimitsCPU] = q
 		}
 		if tn.Spec.ResourceQuota.Memory != "" {
-			hard[corev1.ResourceRequestsMemory] = resource.MustParse(tn.Spec.ResourceQuota.Memory)
-			hard[corev1.ResourceLimitsMemory] = resource.MustParse(tn.Spec.ResourceQuota.Memory)
+			q, err := resource.ParseQuantity(tn.Spec.ResourceQuota.Memory)
+			if err != nil {
+				return fmt.Errorf("invalid resourceQuota.memory %q: %w", tn.Spec.ResourceQuota.Memory, err)
+			}
+			hard[corev1.ResourceRequestsMemory] = q
+			hard[corev1.ResourceLimitsMemory] = q
 		}
 		if tn.Spec.ResourceQuota.Pods > 0 {
 			hard[corev1.ResourcePods] = *resource.NewQuantity(int64(tn.Spec.ResourceQuota.Pods), resource.DecimalSI)

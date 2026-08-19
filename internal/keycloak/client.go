@@ -47,17 +47,17 @@ type ClientResult struct {
 
 // Client is a Keycloak Admin REST client.
 type Client struct {
-	baseURL         string
-	tokenRealm      string
-	clientID        string
-	clientSecret    string
-	httpClient      *http.Client
-	tokenURL        string
+	baseURL      string
+	tokenRealm   string
+	clientID     string
+	clientSecret string
+	httpClient   *http.Client
+	tokenURL     string
 
-	mu        sync.Mutex
-	token     string
-	tokenExp  time.Time
-	nowFunc   func() time.Time
+	mu       sync.Mutex
+	token    string
+	tokenExp time.Time
+	nowFunc  func() time.Time
 }
 
 // NewClient returns a Client authenticating against tokenRealm with client
@@ -207,7 +207,7 @@ func (e *httpError) Error() string {
 	return fmt.Sprintf("keycloak: HTTP %d: %s", e.Status, e.Body)
 }
 
-func (c *Client) token2(ctx context.Context) (string, error) {
+func (c *Client) getToken(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.token != "" && c.nowFunc().Before(c.tokenExp.Add(-10*time.Second)) {
@@ -267,7 +267,7 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	tok, err := c.token2(ctx)
+	tok, err := c.getToken(ctx)
 	if err != nil {
 		return err
 	}

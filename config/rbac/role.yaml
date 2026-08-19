@@ -26,6 +26,12 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - impersonate
+- apiGroups:
   - argoproj.io
   resources:
   - appprojects
