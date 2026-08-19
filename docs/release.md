@@ -35,8 +35,8 @@ Workflow permissions: `contents: write`, `packages: write`, `id-token: write`, `
 
 ## Edge images
 
-Per-commit edge images (`ghcr.io/7k-inari/inari-operator:edge-<sha>`) are published by a separate CI workflow (M3-W1) and are intentionally **not** part of this pipeline; nothing here reacts to tag pushes.
+Per-commit edge images (`ghcr.io/7k-inari/inari-operator:edge-<sha>`) are published by `.github/workflows/ci.yml` on merges to main (unsigned, no SBOM — the signed release path is exclusively the pipeline above). Nothing here reacts to tag pushes.
 
-## Pending (until operator code lands / M3-W1)
+## Operator scaffold
 
-The repo currently has no Go module, Dockerfile, or `config/` manifests. The publish jobs are gated (`hashFiles('go.mod')`, `hashFiles('Dockerfile')`, `hashFiles('config/crd/kustomization.yaml')`) and will no-op until those land. Release-PR + tag/Release creation works today; image/SBOM/SLSA/CRD-bundle verification is **pending** the operator scaffold.
+The Go module, Dockerfile and `config/` manifests exist; the publish jobs' `hashFiles` gates are live. `make manifests` regenerates CRDs/RBAC with controller-gen before tagging a release.

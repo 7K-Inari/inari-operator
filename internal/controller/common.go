@@ -24,6 +24,8 @@ const Finalizer = "platform.inari.io/finalizer"
 // tenantLabel marks every child resource with its owning tenant.
 const tenantLabel = "platform.inari.io/tenant"
 
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+
 // ensureFinalizer adds the finalizer if missing. Returns true when added.
 func ensureFinalizer(ctx context.Context, c client.Client, obj client.Object) (bool, error) {
 	if controllerutil.ContainsFinalizer(obj, Finalizer) {

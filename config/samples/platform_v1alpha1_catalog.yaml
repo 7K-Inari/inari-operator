@@ -1,0 +1,86 @@
+apiVersion: platform.inari.io/v1alpha1
+kind: KeycloakRealm
+metadata:
+  name: acme-realm
+  namespace: inari-system
+spec:
+  tenantID: acme
+  namespace: acme
+  displayName: Acme Workloads
+  enabled: true
+---
+apiVersion: platform.inari.io/v1alpha1
+kind: KeycloakClient
+metadata:
+  name: acme-api
+  namespace: inari-system
+spec:
+  tenantID: acme
+  namespace: acme
+  realmRef: acme-realm
+  redirectURIs:
+    - https://api.acme.example.com/callback
+---
+apiVersion: platform.inari.io/v1alpha1
+kind: TenantNamespace
+metadata:
+  name: acme
+  namespace: inari-system
+spec:
+  tenantID: acme
+  namespace: acme
+  adminGroup: "idp:acme-admins"
+  resourceQuota:
+    cpu: "4"
+    memory: 8Gi
+    pods: 20
+---
+apiVersion: platform.inari.io/v1alpha1
+kind: DNSZone
+metadata:
+  name: acme-zone
+  namespace: inari-system
+spec:
+  tenantID: acme
+  namespace: acme
+  zoneName: acme.apps.example.com
+---
+apiVersion: platform.inari.io/v1alpha1
+kind: DNSRecord
+metadata:
+  name: acme-api-record
+  namespace: inari-system
+spec:
+  tenantID: acme
+  namespace: acme
+  zoneRef: acme-zone
+  endpoints:
+    - dnsName: api.acme.apps.example.com
+      recordType: A
+      targets:
+        - 10.0.0.10
+      ttl: 300
+---
+apiVersion: platform.inari.io/v1alpha1
+kind: CertIssuer
+metadata:
+  name: acme-letsencrypt
+  namespace: inari-system
+spec:
+  tenantID: acme
+  namespace: acme
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: platform@example.com
+    ingressClass: nginx
+---
+apiVersion: platform.inari.io/v1alpha1
+kind: ArgoProject
+metadata:
+  name: acme
+  namespace: inari-system
+spec:
+  tenantID: acme
+  namespace: acme
+  sourceRepos:
+    - https://github.com/example/acme-*

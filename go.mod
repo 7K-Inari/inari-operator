@@ -1,6 +1,6 @@
 module github.com/7k-inari/inari-operator
 
-go 1.26.0
+go 1.24.0
 
 require (
 	k8s.io/api v0.32.3

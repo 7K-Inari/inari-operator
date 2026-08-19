@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -105,12 +104,4 @@ func (r *KeycloakRealmReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&platformv1alpha1.KeycloakRealm{}).
 		Complete(r)
-}
-
-// ignoreConflict is used where optimistic concurrency conflicts should retry.
-func ignoreConflict(err error) error {
-	if apierrors.IsConflict(err) {
-		return nil
-	}
-	return err
 }
