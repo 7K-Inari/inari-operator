@@ -26,7 +26,18 @@ jobs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
       version: ${{ steps.rp.outputs.version }}
+      # Artifact gates as outputs — hashFiles() may not be combined with
+      # needs.* in a job-level if (GitHub rejects the workflow at eval time).
+      has_image: ${{ steps.gates.outputs.has_image }}
+      has_crds: ${{ steps.gates.outputs.has_crds }}
     steps:
+      - uses: actions/checkout@v4
+      - id: gates
+        run: |
+          {
+            echo "has_image=$(test -f go.mod -a -f Dockerfile && echo true || echo false)"
+            echo "has_crds=$(test -f config/crd/kustomization.yaml && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
       - uses: googleapis/release-please-action@v4
         id: rp
         with:
@@ -37,7 +48,7 @@ jobs:
   image:
     needs: release
     # No Go module/Dockerfile until operator code lands (M3-W1); gate until then.
-    if: needs.release.outputs.release_created == 'true' && hashFiles('go.mod') != '' && hashFiles('Dockerfile') != ''
+    if: needs.release.outputs.release_created == 'true' && needs.release.outputs.has_image == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -82,7 +93,7 @@ jobs:
   crd-bundle:
     needs: release
     # No CRDs/config manifests until the operator scaffold lands (M3-W1); gate until then.
-    if: needs.release.outputs.release_created == 'true' && hashFiles('config/crd/kustomization.yaml') != ''
+    if: needs.release.outputs.release_created == 'true' && needs.release.outputs.has_crds == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
