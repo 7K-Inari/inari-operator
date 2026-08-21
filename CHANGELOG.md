@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.4](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.3...inari-operator-v0.0.4) (2026-08-21)
+
+
+### Continuous Integration
+
+* skip release-please regeneration on release merges ([f4f5108](https://github.com/7K-Inari/inari-operator/commit/f4f5108b43b73619da5df39240329c8afde52a56))
+* skip release-please regeneration on release merges ([88e37de](https://github.com/7K-Inari/inari-operator/commit/88e37def30cca292c46f5d7ea3cc07a047d864a9))
+
 ## [0.0.3](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.2...inari-operator-v0.0.3) (2026-08-21)
 
 
