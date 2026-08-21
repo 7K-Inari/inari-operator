@@ -78,12 +78,14 @@ jobs:
       - uses: anchore/sbom-action@v0
         with:
           image: ghcr.io/7k-inari/inari-operator@${{ steps.build.outputs.digest }}
-          artifact-name: inari-operator-${{ needs.release.outputs.version }}.sbom.spdx.json
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
       - name: Upload SBOM to Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.release.outputs.tag_name }}
-        run: gh release upload "$TAG" "inari-operator-${{ needs.release.outputs.version }}.sbom.spdx.json" --clobber
+        run: gh release upload "$TAG" sbom.spdx.json --clobber
       - uses: actions/attest-build-provenance@v2
         with:
           subject-name: ghcr.io/7k-inari/inari-operator
