@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.5](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.4...inari-operator-v0.0.5) (2026-08-21)
+
+
+### Bug Fixes
+
+* **ci:** write SBOM to a file before uploading to the release ([94a2f66](https://github.com/7K-Inari/inari-operator/commit/94a2f663a4e8ec3952bd92bc20dae0640a1e9f6c))
+* **ci:** write SBOM to a file before uploading to the release ([ce3e298](https://github.com/7K-Inari/inari-operator/commit/ce3e2980aec09737e238b0ba26930aafc78dad9d))
+
 ## [0.0.4](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.3...inari-operator-v0.0.4) (2026-08-21)
 
 
