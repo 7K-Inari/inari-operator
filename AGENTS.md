@@ -13,6 +13,8 @@ Stack: Go, controller-runtime / kubebuilder
 ## Conventions
 - Conventional Commits; SemVer releases; container images/artifacts cosign-signed.
 - Releases: release-please in **PR-only mode** (release-type `go`). `release-please.yml` (push to main, `skip-github-release: true`) only maintains the Release PR; merging it runs `release.yml` (push to main), which creates the tag + GitHub Release and publishes the GHCR image (`ghcr.io/7k-inari/inari-operator`, cosign keyless + SBOM + SLSA) and CRD/install bundles. **No tag-push triggers.** Per-commit edge images are a separate CI workflow. Details: `docs/release.md`.
+- Helm charts in `charts/`: `inari-operator-crds` (verbatim sync of `config/crd/bases` via `make chart-crds`; CI fails on drift) and `inari-operator` (Deployment/RBAC/SA ported from `config/manager` + `config/rbac`). Chart versions are independent release-please `simple` components — never bump `version:` by hand; `appVersion` is auto-synced to the operator release via the root component's `extra-files`. Charts publish to `oci://ghcr.io/7k-inari/charts` via `chart-release.yaml`. Migration/install order: `docs/helm-migration.md`.
+- After changing `+kubebuilder:` markers, run `make chart-crds` so the CRDs chart stays in sync (CI drift check: `make chart-crds-check`).
 - Write tests for new behavior; keep changes minimal and focused.
 - Canonical architecture & development plan: https://github.com/7K-Inari/inari-docs/blob/main/docs/architecture/inari-platform-plan.md (section references below point into it).
 

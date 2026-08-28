@@ -1,0 +1,112 @@
+suite: inari-operator
+templates:
+  - deployment.yaml
+  - serviceaccount.yaml
+  - rbac.yaml
+tests:
+  - it: renders Deployment, ServiceAccount and RBAC by default
+    asserts:
+      - hasDocuments:
+          count: 1
+    template: deployment.yaml
+  - it: renders all RBAC documents by default
+    template: rbac.yaml
+    asserts:
+      - hasDocuments:
+          count: 4
+  - it: renders the manager Deployment
+    template: deployment.yaml
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: RELEASE-NAME-inari-operator
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/7k-inari/inari-operator:0.0.5
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KEYCLOAK_URL
+            valueFrom:
+              secretKeyRef:
+                name: inari-operator-keycloak
+                key: url
+                optional: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KEYCLOAK_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: inari-operator-keycloak
+                key: client-secret
+                optional: true
+  - it: uses an explicit image tag when set
+    template: deployment.yaml
+    set:
+      image.tag: "1.2.3"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/7k-inari/inari-operator:1.2.3
+  - it: renders the ServiceAccount
+    template: serviceaccount.yaml
+    asserts:
+      - isKind:
+          of: ServiceAccount
+  - it: renders ClusterRole and ClusterRoleBinding
+    template: rbac.yaml
+    asserts:
+      - isKind:
+          of: ClusterRole
+        documentIndex: 0
+      - isKind:
+          of: ClusterRoleBinding
+        documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups:
+              - platform.inari.io
+            resources:
+              - argoprojects
+              - certissuers
+              - dnsrecords
+              - dnszones
+              - keycloakclients
+              - keycloakrealms
+              - tenantnamespaces
+            verbs:
+              - create
+              - delete
+              - get
+              - list
+              - patch
+              - update
+              - watch
+        documentIndex: 0
+  - it: omits leader-election RBAC when disabled
+    template: rbac.yaml
+    set:
+      leaderElection.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ClusterRole
+        documentIndex: 0
+      - isKind:
+          of: ClusterRoleBinding
+        documentIndex: 1
+  - it: drops leader-elect arg when disabled
+    template: deployment.yaml
+    set:
+      leaderElection.enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].args

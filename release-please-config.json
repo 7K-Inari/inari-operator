@@ -1,10 +1,23 @@
 {
+  "separate-pull-requests": false,
   "packages": {
     ".": {
       "release-type": "go",
       "package-name": "inari-operator",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        {
+          "type": "yaml",
+          "path": "charts/inari-operator/Chart.yaml",
+          "jsonpath": "$.appVersion"
+        },
+        {
+          "type": "yaml",
+          "path": "charts/inari-operator-crds/Chart.yaml",
+          "jsonpath": "$.appVersion"
+        }
+      ],
       "changelog-sections": [
         { "type": "feat", "section": "Features" },
         { "type": "fix", "section": "Bug Fixes" },
@@ -16,6 +29,26 @@
         { "type": "refactor", "section": "Code Refactoring" },
         { "type": "test", "section": "Tests", "hidden": true },
         { "type": "chore", "section": "Miscellaneous Chores", "hidden": true }
+      ]
+    },
+    "charts/inari-operator": {
+      "release-type": "simple",
+      "component": "inari-operator-chart",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "Chart.yaml"
+      ]
+    },
+    "charts/inari-operator-crds": {
+      "release-type": "simple",
+      "component": "inari-operator-crds",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "Chart.yaml"
       ]
     }
   }

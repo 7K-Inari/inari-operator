@@ -13,7 +13,31 @@ flowchart LR
   E --> F[GHCR image + cosign sign]
   E --> G[SBOM + SLSA provenance]
   E --> H[CRD/install bundle on Release]
+  C -.->|chart components changed| I[chart-release.yaml<br/>on: push to main]
+  I --> J[chart tags + helm push<br/>oci://ghcr.io/7k-inari/charts]
 ```
+
+## Helm charts
+
+This repo also releases two Helm charts from `charts/`:
+
+- `charts/inari-operator-crds` — verbatim CRDs from `config/crd/bases`
+  (synced by `make chart-crds`, drift-checked in CI).
+- `charts/inari-operator` — the controller Deployment/RBAC/ServiceAccount.
+
+Both are release-please components (release-type `simple`, per-chart tags
+`inari-operator-chart-vX.Y.Z` / `inari-operator-crds-vX.Y.Z`) sharing the
+Release PR with the root go component. `.github/workflows/chart-release.yaml`
+runs on push to main, detects released chart paths, and publishes
+`oci://ghcr.io/7k-inari/charts/<name>:<version>`. It shares the
+`release-main` concurrency group with `release.yml` so the two release-please
+detections serialize — the second run sees the releases already created.
+
+Version sync: the root go component's release-please `extra-files` (yaml
+updaters) bump `appVersion` in both charts' `Chart.yaml` whenever an operator
+release is cut, so the charts' appVersion always records the operator image
+they ship/generated from. Chart `version:` stays independent — never bump it
+by hand. Install order and cluster migration: `docs/helm-migration.md`.
 
 1. Merge conventional-commit changes to `main`. `.github/workflows/release-please.yml` runs `googleapis/release-please-action` with `skip-github-release: true` and only opens/updates the Release PR (version bump + `CHANGELOG.md`).
 2. A maintainer merges the Release PR — this is the manual release gate.
@@ -26,10 +50,11 @@ flowchart LR
 
 | File | Purpose |
 |------|---------|
-| `release-please-config.json` | release-type `go`, package, changelog sections |
-| `.release-please-manifest.json` | current released version |
+| `release-please-config.json` | release-type `go` root package + `simple` chart components, changelog sections |
+| `.release-please-manifest.json` | current released versions (root + charts) |
 | `.github/workflows/release-please.yml` | Release PR only (`skip-github-release: true`) |
-| `.github/workflows/release.yml` | tag + Release + publish on Release-PR merge |
+| `.github/workflows/release.yml` | tag + Release + image/bundle publish on Release-PR merge |
+| `.github/workflows/chart-release.yaml` | per-chart tags + OCI chart publish on Release-PR merge |
 
 Workflow permissions: `contents: write`, `packages: write`, `id-token: write`, `attestations: write` — all via the default `GITHUB_TOKEN`, no PAT.
 

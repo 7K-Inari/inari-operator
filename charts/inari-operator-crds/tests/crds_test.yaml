@@ -1,0 +1,52 @@
+suite: inari-operator CRDs
+templates:
+  - platform.inari.io_argoprojects.yaml
+  - platform.inari.io_certissuers.yaml
+  - platform.inari.io_dnsrecords.yaml
+  - platform.inari.io_dnszones.yaml
+  - platform.inari.io_keycloakclients.yaml
+  - platform.inari.io_keycloakrealms.yaml
+  - platform.inari.io_tenantnamespaces.yaml
+tests:
+  - it: renders all seven platform.inari.io CRDs
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: CustomResourceDefinition
+      - matchRegex:
+          path: metadata.name
+          pattern: ^[a-z]+\.platform\.inari\.io$
+      - equal:
+          path: spec.group
+          value: platform.inari.io
+  - it: renders the argoprojects CRD
+    template: platform.inari.io_argoprojects.yaml
+    asserts:
+      - isKind:
+          of: CustomResourceDefinition
+      - equal:
+          path: metadata.name
+          value: argoprojects.platform.inari.io
+      - equal:
+          path: spec.group
+          value: platform.inari.io
+  - it: renders the keycloakrealms CRD
+    template: platform.inari.io_keycloakrealms.yaml
+    asserts:
+      - isKind:
+          of: CustomResourceDefinition
+      - equal:
+          path: metadata.name
+          value: keycloakrealms.platform.inari.io
+      - equal:
+          path: spec.group
+          value: platform.inari.io
+  - it: renders the tenantnamespaces CRD
+    template: platform.inari.io_tenantnamespaces.yaml
+    asserts:
+      - isKind:
+          of: CustomResourceDefinition
+      - equal:
+          path: metadata.name
+          value: tenantnamespaces.platform.inari.io

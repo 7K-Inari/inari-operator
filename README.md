@@ -32,6 +32,21 @@ Keycloak integration is enabled by setting `KEYCLOAK_URL` and
 `KEYCLOAK_CLIENT_SECRET` (see `config/manager/manager.yaml`). ExternalDNS,
 cert-manager and ArgoCD CRDs are prerequisites on the platform cluster.
 
+## Helm charts
+
+Two charts are released from this repo to `oci://ghcr.io/7k-inari/charts`:
+
+```sh
+helm install inari-operator-crds oci://ghcr.io/7k-inari/charts/inari-operator-crds -n inari-system
+helm install inari-operator      oci://ghcr.io/7k-inari/charts/inari-operator      -n inari-system
+```
+
+Install CRDs first; on upgrades apply `-crds` before/with the operator chart.
+Chart `appVersion` tracks the released operator image (release-please
+`extra-files`), and CRDs are drift-checked in CI against `config/crd/bases`.
+Migrating a cluster from the `inari-platform` umbrella chart:
+[docs/helm-migration.md](docs/helm-migration.md).
+
 Releases: see [docs/release.md](docs/release.md).
 
 

@@ -4,24 +4,22 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.5
-  name: keycloakclients.platform.inari.io
+  name: argoprojects.platform.inari.io
 spec:
   group: platform.inari.io
   names:
-    kind: KeycloakClient
-    listKind: KeycloakClientList
-    plural: keycloakclients
-    shortNames:
-    - kcc
-    singular: keycloakclient
+    kind: ArgoProject
+    listKind: ArgoProjectList
+    plural: argoprojects
+    singular: argoproject
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.tenantID
       name: Tenant
       type: string
-    - jsonPath: .status.clientID
-      name: ClientID
+    - jsonPath: .status.projectName
+      name: Project
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
@@ -30,8 +28,8 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          KeycloakClient is a platform-scoped Catalog Item provisioning an OIDC
-          client in a tenant Keycloak realm for workload federation (§5.4, §5.6).
+          ArgoProject is a platform-scoped Catalog Item rendering a shared ArgoCD
+          AppProject scoped to a tenant (§5.6).
         properties:
           apiVersion:
             description: |-
@@ -52,14 +50,19 @@ spec:
             type: object
           spec:
             description: |-
-              KeycloakClientSpec defines a tenant OIDC client inside a tenant realm
-              (§5.4). Confidential clients get their secret written into the tenant
-              namespace.
+              ArgoProjectSpec defines a shared ArgoCD AppProject on the platform cluster
+              restricted to a tenant's sources and destinations (§5.6).
             properties:
-              clientID:
-                description: ClientID is the OIDC client identifier. Defaults to the
-                  CR name.
+              description:
+                description: Description is shown in ArgoCD.
                 type: string
+              destinationNamespaces:
+                description: |-
+                  DestinationNamespaces restricts which namespaces Applications may
+                  deploy into. Defaults to the tenant namespace.
+                items:
+                  type: string
+                type: array
               impersonateServiceAccount:
                 description: |-
                   ImpersonateServiceAccount is the tenant-scoped ServiceAccount the
@@ -73,31 +76,13 @@ spec:
                   observe are written here.
                 minLength: 1
                 type: string
-              public:
-                default: false
-                description: Public marks the client as public (no secret). Default
-                  is confidential.
-                type: boolean
-              realmRef:
-                description: RealmRef references the KeycloakRealm this client belongs
-                  to.
-                type: string
-              redirectURIs:
-                description: RedirectURIs allowed for authorization code flows.
+              sourceRepos:
+                description: SourceRepos restricts which Git repositories Applications
+                  may use.
                 items:
                   type: string
+                minItems: 1
                 type: array
-              secretName:
-                description: |-
-                  SecretName is the name of the Secret written into the tenant namespace
-                  holding the client credentials. Defaults to "<name>-keycloak-client".
-                type: string
-              serviceAccountsEnabled:
-                default: true
-                description: |-
-                  ServiceAccountsEnabled enables the client credentials grant for
-                  workload-to-workload federation.
-                type: boolean
               tenantID:
                 description: TenantID is the platform-wide tenant identifier this
                   resource belongs to.
@@ -107,18 +92,13 @@ spec:
                 type: string
             required:
             - namespace
-            - public
-            - realmRef
-            - serviceAccountsEnabled
+            - sourceRepos
             - tenantID
             type: object
           status:
-            description: KeycloakClientStatus exposes observed state for the Resources
+            description: ArgoProjectStatus exposes observed state for the Resources
               Inventory.
             properties:
-              clientID:
-                description: ClientID is the effective client identifier.
-                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
@@ -178,13 +158,8 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
-              realm:
-                description: |-
-                  Realm is the Keycloak realm the client was provisioned into. Recorded
-                  so teardown targets the right realm even if the realm CR is gone.
-                type: string
-              secretName:
-                description: SecretName is the tenant-namespace Secret holding credentials.
+              projectName:
+                description: ProjectName is the rendered ArgoCD AppProject name.
                 type: string
             type: object
         type: object
