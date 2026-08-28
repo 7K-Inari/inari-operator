@@ -55,14 +55,15 @@ jobs:
 
   publish:
     needs: detect
-    if: needs.detect.outputs.paths_released != '' && needs.detect.outputs.paths_released != '[]'
+    # Only chart paths publish here; the root go component is release.yml's job.
+    if: >-
+      needs.detect.outputs.paths_released != '' && needs.detect.outputs.paths_released != '[]'
+      && startsWith(matrix.chart-path, 'charts/')
     strategy:
       fail-fast: false
       matrix:
         chart-path: ${{ fromJSON(needs.detect.outputs.paths_released) }}
     runs-on: ubuntu-latest
-    # Only chart paths publish here; the root go component is release.yml's job.
-    if: startsWith(matrix.chart-path, 'charts/')
     steps:
       - uses: actions/checkout@v4
         with:
