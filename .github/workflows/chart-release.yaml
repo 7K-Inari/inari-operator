@@ -55,55 +55,64 @@ jobs:
 
   publish:
     needs: detect
-    # Only chart paths publish here; the root go component is release.yml's job.
-    if: >-
-      needs.detect.outputs.paths_released != '' && needs.detect.outputs.paths_released != '[]'
-      && startsWith(matrix.chart-path, 'charts/')
+    if: needs.detect.outputs.paths_released != '' && needs.detect.outputs.paths_released != '[]'
     strategy:
       fail-fast: false
       matrix:
         chart-path: ${{ fromJSON(needs.detect.outputs.paths_released) }}
     runs-on: ubuntu-latest
+    # Only chart paths publish here; the root go component is release.yml's
+    # job. matrix is not available in a job-level if, so gate every step.
     steps:
-      - uses: actions/checkout@v4
+      - if: startsWith(matrix.chart-path, 'charts/')
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: azure/setup-helm@v4
+      - if: startsWith(matrix.chart-path, 'charts/')
+        uses: azure/setup-helm@v4
         with:
           version: v3.18.6
 
-      - name: Set up chart-testing
+      - if: startsWith(matrix.chart-path, 'charts/')
+        name: Set up chart-testing
         uses: helm/chart-testing-action@v2.7.0
         with:
           version: v3.12.0
 
-      - name: Resolve chart name and version
+      - if: startsWith(matrix.chart-path, 'charts/')
+        name: Resolve chart name and version
         id: chart
         run: |
           CHART_PATH="${{ matrix.chart-path }}"
           echo "name=$(basename "$CHART_PATH")" >> "$GITHUB_OUTPUT"
           echo "version=$(jq -r '."'$CHART_PATH'"' .release-please-manifest.json)" >> "$GITHUB_OUTPUT"
 
-      - name: chart-testing lint
+      - if: startsWith(matrix.chart-path, 'charts/')
+        name: chart-testing lint
         run: ct lint --config ct.yaml --charts "${{ matrix.chart-path }}" --validate-maintainers=false
 
-      - name: Package chart
+      - if: startsWith(matrix.chart-path, 'charts/')
+        name: Package chart
         run: |
           mkdir -p dist
           helm package "${{ matrix.chart-path }}" -d dist
 
-      - name: Verify package version matches manifest
+      - if: startsWith(matrix.chart-path, 'charts/')
+        name: Verify package version matches manifest
         run: |
           ls "dist/${{ steps.chart.outputs.name }}-${{ steps.chart.outputs.version }}.tgz"
 
-      - name: Login to ghcr.io
+      - if: startsWith(matrix.chart-path, 'charts/')
+        name: Login to ghcr.io
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Push chart as OCI artifact
+      - if: startsWith(matrix.chart-path, 'charts/')
+        name: Push chart as OCI artifact
         run: helm push "dist/${{ steps.chart.outputs.name }}-${{ steps.chart.outputs.version }}.tgz" oci://ghcr.io/7k-inari/charts
 
-      - name: Verify published chart
+      - if: startsWith(matrix.chart-path, 'charts/')
+        name: Verify published chart
         run: |
           TAG="${{ steps.chart.outputs.version }}"
           for i in $(seq 1 12); do
