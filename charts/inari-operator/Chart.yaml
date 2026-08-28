@@ -2,7 +2,7 @@ apiVersion: v2
 name: inari-operator
 description: Inari platform operator — reconciles platform.inari.io resources (Keycloak realms/clients, DNS zones/records, cert issuers, ArgoCD projects, tenant namespaces).
 type: application
-version: 0.1.0 # x-release-please-version
+version: 0.1.0  # x-release-please-version
 # appVersion tracks the inari-operator image released from this repo; kept in
 # sync by release-please (yaml extra-files on the root go component).
 appVersion: "0.0.5"

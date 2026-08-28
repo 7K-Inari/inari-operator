@@ -2,6 +2,6 @@ apiVersion: v2
 name: inari-operator-crds
 description: CustomResourceDefinitions (platform.inari.io) for the Inari platform operator. Install this chart before inari-operator and upgrade it before or together with inari-operator.
 type: application
-version: 0.1.0 # x-release-please-version
+version: 0.1.0  # x-release-please-version
 # appVersion tracks the inari-operator release these CRDs were generated from.
 appVersion: "0.0.5"
