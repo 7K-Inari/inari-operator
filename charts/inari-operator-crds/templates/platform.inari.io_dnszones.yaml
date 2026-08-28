@@ -4,24 +4,22 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.5
-  name: keycloakclients.platform.inari.io
+  name: dnszones.platform.inari.io
 spec:
   group: platform.inari.io
   names:
-    kind: KeycloakClient
-    listKind: KeycloakClientList
-    plural: keycloakclients
-    shortNames:
-    - kcc
-    singular: keycloakclient
+    kind: DNSZone
+    listKind: DNSZoneList
+    plural: dnszones
+    singular: dnszone
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.tenantID
       name: Tenant
       type: string
-    - jsonPath: .status.clientID
-      name: ClientID
+    - jsonPath: .status.zoneName
+      name: Zone
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
@@ -30,8 +28,8 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          KeycloakClient is a platform-scoped Catalog Item provisioning an OIDC
-          client in a tenant Keycloak realm for workload federation (§5.4, §5.6).
+          DNSZone is a platform-scoped Catalog Item delegating a DNS zone to a
+          tenant; records are rendered as ExternalDNS DNSEndpoints (§5.6).
         properties:
           apiVersion:
             description: |-
@@ -51,15 +49,9 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              KeycloakClientSpec defines a tenant OIDC client inside a tenant realm
-              (§5.4). Confidential clients get their secret written into the tenant
-              namespace.
+            description: DNSZoneSpec defines a tenant DNS zone managed via ExternalDNS
+              (§5.6).
             properties:
-              clientID:
-                description: ClientID is the OIDC client identifier. Defaults to the
-                  CR name.
-                type: string
               impersonateServiceAccount:
                 description: |-
                   ImpersonateServiceAccount is the tenant-scoped ServiceAccount the
@@ -73,31 +65,6 @@ spec:
                   observe are written here.
                 minLength: 1
                 type: string
-              public:
-                default: false
-                description: Public marks the client as public (no secret). Default
-                  is confidential.
-                type: boolean
-              realmRef:
-                description: RealmRef references the KeycloakRealm this client belongs
-                  to.
-                type: string
-              redirectURIs:
-                description: RedirectURIs allowed for authorization code flows.
-                items:
-                  type: string
-                type: array
-              secretName:
-                description: |-
-                  SecretName is the name of the Secret written into the tenant namespace
-                  holding the client credentials. Defaults to "<name>-keycloak-client".
-                type: string
-              serviceAccountsEnabled:
-                default: true
-                description: |-
-                  ServiceAccountsEnabled enables the client credentials grant for
-                  workload-to-workload federation.
-                type: boolean
               tenantID:
                 description: TenantID is the platform-wide tenant identifier this
                   resource belongs to.
@@ -105,20 +72,18 @@ spec:
                 minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
+              zoneName:
+                description: ZoneName is the DNS zone (e.g. "team-a.apps.example.com").
+                minLength: 1
+                type: string
             required:
             - namespace
-            - public
-            - realmRef
-            - serviceAccountsEnabled
             - tenantID
+            - zoneName
             type: object
           status:
-            description: KeycloakClientStatus exposes observed state for the Resources
-              Inventory.
+            description: DNSZoneStatus exposes observed state for the Resources Inventory.
             properties:
-              clientID:
-                description: ClientID is the effective client identifier.
-                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
@@ -178,13 +143,7 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
-              realm:
-                description: |-
-                  Realm is the Keycloak realm the client was provisioned into. Recorded
-                  so teardown targets the right realm even if the realm CR is gone.
-                type: string
-              secretName:
-                description: SecretName is the tenant-namespace Secret holding credentials.
+              zoneName:
                 type: string
             type: object
         type: object

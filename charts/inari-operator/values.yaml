@@ -1,0 +1,47 @@
+# Default values for inari-operator.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/7k-inari/inari-operator
+  # Defaults to the chart's appVersion when empty; release-please keeps
+  # appVersion aligned with the released operator image.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Leader election for the controller manager (args: --leader-elect).
+leaderElection:
+  enabled: true
+
+# Keycloak Admin credentials consumed by the operator. Mirrors
+# config/manager/manager.yaml: both keys are optional — when the secret is
+# absent the operator runs without Keycloak integration.
+keycloak:
+  url: ""
+  secret:
+    # Name of the secret holding Keycloak credentials. Empty disables the
+    # env wiring entirely.
+    name: inari-operator-keycloak
+    urlKey: url
+    clientSecretKey: client-secret
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+serviceAccount:
+  # Annotations to add to the operator service account.
+  annotations: {}

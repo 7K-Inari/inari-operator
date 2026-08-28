@@ -16,6 +16,13 @@ permissions:
   id-token: write
   attestations: write
 
+concurrency:
+  # Shared with chart-release.yaml: both run release-please detection on
+  # push to main, so serialize them — the second run sees the releases
+  # already created and returns empty.
+  group: release-main
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest

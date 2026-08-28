@@ -32,6 +32,25 @@ manifests:
 	$(CONTROLLER_GEN) crd paths=./api/... output:crd:dir=config/crd/bases
 	$(CONTROLLER_GEN) rbac:roleName=manager-role paths=./... output:rbac:dir=config/rbac
 
+.PHONY: chart-crds
+chart-crds: manifests
+	scripts/chart-crds-sync.sh
+
+.PHONY: chart-crds-check
+chart-crds-check: manifests
+	scripts/chart-crds-sync.sh --check
+
+.PHONY: chart-lint
+chart-lint:
+	helm lint charts/inari-operator-crds
+	helm lint charts/inari-operator
+	ct lint --config ct.yaml --validate-maintainers=false
+
+.PHONY: chart-test
+chart-test:
+	helm unittest charts/inari-operator-crds
+	helm unittest charts/inari-operator
+
 .PHONY: docker-build
 docker-build:
 	docker build -t $(IMG) .
