@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.7](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.6...inari-operator-v0.0.7) (2026-08-28)
+
+
+### Bug Fixes
+
+* **ci:** matrix context not allowed in job-level if (chart-release) ([6dde1e0](https://github.com/7K-Inari/inari-operator/commit/6dde1e045dd442b3a786e5e346837b2081e342a5))
+* **ci:** matrix is not available in job-level if — gate steps instead ([e60c8fa](https://github.com/7K-Inari/inari-operator/commit/e60c8fa85eb1a71da4bc8a51abc8996bf18cc96e))
+* **ci:** merge duplicate if keys on chart-release publish job ([9eea272](https://github.com/7K-Inari/inari-operator/commit/9eea27296ab525b4fa3edd373e74229680ed8b14))
+* **ci:** merge duplicate if keys on publish job ([11a4bb7](https://github.com/7K-Inari/inari-operator/commit/11a4bb7d9c8bf1782356df686aa7fed374142f05))
+* **release:** use clean version for image semver tag ([6495f5c](https://github.com/7K-Inari/inari-operator/commit/6495f5c049cf736604466fa7eec11a2f4a4255f7))
+* **release:** versioned image tags missing (semver parse of prefixed tag) ([2fd5501](https://github.com/7K-Inari/inari-operator/commit/2fd5501acca7aa2690201f0f983baee318905c7a))
+
 ## [0.0.6](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.5...inari-operator-v0.0.6) (2026-08-28)
 
 
