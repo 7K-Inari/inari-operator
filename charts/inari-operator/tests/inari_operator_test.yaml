@@ -110,3 +110,43 @@ tests:
     asserts:
       - notExists:
           path: spec.template.spec.containers[0].args
+  - it: prepends global.imageRegistry to the image
+    template: deployment.yaml
+    set:
+      global.imageRegistry: registry.example.com:5000
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.example.com:5000/ghcr.io/7k-inari/inari-operator:0.0.5
+  - it: prefers image.digest over tag
+    template: deployment.yaml
+    set:
+      image.tag: "1.2.3"
+      image.digest: sha256:abc
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/7k-inari/inari-operator@sha256:abc
+  - it: renders global.imagePullSecrets into the pod spec and ServiceAccount
+    set:
+      global.imagePullSecrets:
+        - mirror-pull
+    asserts:
+      - equal:
+          path: spec.template.spec.imagePullSecrets
+          value:
+            - name: mirror-pull
+        template: deployment.yaml
+      - equal:
+          path: imagePullSecrets
+          value:
+            - name: mirror-pull
+        template: serviceaccount.yaml
+  - it: renders no imagePullSecrets by default
+    asserts:
+      - notExists:
+          path: spec.template.spec.imagePullSecrets
+        template: deployment.yaml
+      - notExists:
+          path: imagePullSecrets
+        template: serviceaccount.yaml

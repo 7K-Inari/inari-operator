@@ -15,13 +15,14 @@ spec:
         {{- include "inari-operator.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "inari-operator.serviceAccountName" . }}
+      {{- include "inari-operator.imagePullSecrets" . | nindent 6 }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: manager
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: {{ include "inari-operator.image" (dict "root" . "image" .Values.image) | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.leaderElection.enabled }}
           args:
