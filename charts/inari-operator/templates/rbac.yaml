@@ -139,6 +139,17 @@ rules:
   - patch
   - update
   - watch
+# TenantNamespace reconciler binds the tenant-admin RoleBinding to the
+# built-in "admin" ClusterRole; RBAC escalation prevention requires the
+# explicit bind grant on it.
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  resourceNames:
+  - admin
+  verbs:
+  - bind
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -39,6 +39,21 @@ spec:
                   key: {{ .Values.keycloak.secret.urlKey }}
                   optional: true
             {{- end }}
+            {{- if .Values.keycloak.tokenRealm }}
+            - name: KEYCLOAK_TOKEN_REALM
+              value: {{ .Values.keycloak.tokenRealm | quote }}
+            {{- end }}
+            {{- if .Values.keycloak.clientId }}
+            - name: KEYCLOAK_CLIENT_ID
+              value: {{ .Values.keycloak.clientId | quote }}
+            {{- else if .Values.keycloak.secret.name }}
+            - name: KEYCLOAK_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.secret.name }}
+                  key: {{ .Values.keycloak.secret.clientIdKey | default "client-id" }}
+                  optional: true
+            {{- end }}
             {{- if .Values.keycloak.secret.name }}
             - name: KEYCLOAK_CLIENT_SECRET
               valueFrom:
