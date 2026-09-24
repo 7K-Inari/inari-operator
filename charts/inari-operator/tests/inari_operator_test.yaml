@@ -24,7 +24,7 @@ tests:
           value: RELEASE-NAME-inari-operator
       - equal:
           path: spec.template.spec.containers[0].image
-          value: ghcr.io/7k-inari/inari-operator:0.0.5
+          value: ghcr.io/7k-inari/inari-operator:0.0.7
       - contains:
           path: spec.template.spec.containers[0].args
           content: --leader-elect
