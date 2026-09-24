@@ -6,4 +6,4 @@ description: >-
   with inari-operator.
 type: application
 version: 0.1.1
-appVersion: 0.0.7
+appVersion: 0.0.8
