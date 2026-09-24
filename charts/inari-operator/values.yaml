@@ -18,11 +18,18 @@ leaderElection:
 # absent the operator runs without Keycloak integration.
 keycloak:
   url: ""
+  # tokenRealm overrides KEYCLOAK_TOKEN_REALM (default "master" in the
+  # binary); set when the admin client lives in a non-master realm.
+  tokenRealm: ""
+  # clientId sets KEYCLOAK_CLIENT_ID directly; empty reads it from the
+  # secret's clientIdKey (optional, operator default applies when absent).
+  clientId: ""
   secret:
     # Name of the secret holding Keycloak credentials. Empty disables the
     # env wiring entirely.
     name: inari-operator-keycloak
     urlKey: url
+    clientIdKey: client-id
     clientSecretKey: client-secret
 
 resources:
