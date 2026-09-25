@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.9](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.8...inari-operator-v0.0.9) (2026-09-25)
+
+
+### Features
+
+* **operator:** add HA guardrails to the inari-operator chart ([ce46d5c](https://github.com/7K-Inari/inari-operator/commit/ce46d5c4de07cfe15c41dfcb58add7615c7ca132))
+* **operator:** add HA guardrails to the inari-operator chart ([4a18ebc](https://github.com/7K-Inari/inari-operator/commit/4a18ebcc861421f5c422c95d7b9bf736d5726d5b))
+
 ## [0.0.8](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.7...inari-operator-v0.0.8) (2026-09-24)
 
 

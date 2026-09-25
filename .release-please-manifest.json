@@ -1,5 +1,5 @@
 {
-  ".": "0.0.8",
-  "charts/inari-operator": "0.1.2",
+  ".": "0.0.9",
+  "charts/inari-operator": "0.1.3",
   "charts/inari-operator-crds": "0.1.1"
 }
