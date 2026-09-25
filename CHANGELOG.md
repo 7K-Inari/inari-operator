@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.8](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.7...inari-operator-v0.0.8) (2026-09-24)
+
+
+### Bug Fixes
+
+* **operator:** chart keycloak client-id/token-realm wiring; bind grant for admin clusterrole ([#20](https://github.com/7K-Inari/inari-operator/issues/20)) ([096f42d](https://github.com/7K-Inari/inari-operator/commit/096f42d289d39da36c18992ea981bee909a28592))
+
 ## [0.0.7](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.6...inari-operator-v0.0.7) (2026-08-28)
 
 
