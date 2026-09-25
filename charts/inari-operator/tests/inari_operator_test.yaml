@@ -3,6 +3,7 @@ templates:
   - deployment.yaml
   - serviceaccount.yaml
   - rbac.yaml
+  - pdb.yaml
 tests:
   - it: renders Deployment, ServiceAccount and RBAC by default
     asserts:
@@ -24,7 +25,7 @@ tests:
           value: RELEASE-NAME-inari-operator
       - equal:
           path: spec.template.spec.containers[0].image
-          value: ghcr.io/7k-inari/inari-operator:0.0.7
+          value: ghcr.io/7k-inari/inari-operator:0.0.8
       - contains:
           path: spec.template.spec.containers[0].args
           content: --leader-elect
@@ -110,3 +111,109 @@ tests:
     asserts:
       - notExists:
           path: spec.template.spec.containers[0].args
+  - it: renders no PDB with the default single replica
+    template: pdb.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: renders no affinity or topology spread by default
+    template: deployment.yaml
+    asserts:
+      - notExists:
+          path: spec.template.spec.affinity
+      - notExists:
+          path: spec.template.spec.topologySpreadConstraints
+  - it: renders a PDB with minAvailable 1 when replicaCount is 2
+    template: pdb.yaml
+    set:
+      replicaCount: 2
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PodDisruptionBudget
+      - isAPIVersion:
+          of: policy/v1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-inari-operator
+      - equal:
+          path: spec.minAvailable
+          value: 1
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: inari-operator
+            app.kubernetes.io/instance: RELEASE-NAME
+            control-plane: controller-manager
+  - it: keeps leader-elect arg with multiple replicas
+    template: deployment.yaml
+    set:
+      replicaCount: 2
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 2
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect
+  - it: renders preferred hostname pod anti-affinity when enabled
+    template: deployment.yaml
+    set:
+      replicaCount: 2
+      podAntiAffinity.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight
+          value: 100
+      - equal:
+          path: spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.topologyKey
+          value: kubernetes.io/hostname
+      - equal:
+          path: spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchLabels
+          value:
+            app.kubernetes.io/name: inari-operator
+            app.kubernetes.io/instance: RELEASE-NAME
+            control-plane: controller-manager
+  - it: renders topology spread constraints with an injected selector
+    template: deployment.yaml
+    set:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+    asserts:
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].maxSkew
+          value: 1
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].topologyKey
+          value: topology.kubernetes.io/zone
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].whenUnsatisfiable
+          value: ScheduleAnyway
+      - equal:
+          path: spec.template.spec.topologySpreadConstraints[0].labelSelector.matchLabels
+          value:
+            app.kubernetes.io/name: inari-operator
+            app.kubernetes.io/instance: RELEASE-NAME
+            control-plane: controller-manager
+  - it: merges custom affinity alongside the anti-affinity preset
+    template: deployment.yaml
+    set:
+      podAntiAffinity.enabled: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nodepool
+                    operator: In
+                    values:
+                      - platform
+    asserts:
+      - equal:
+          path: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key
+          value: nodepool
+      - exists:
+          path: spec.template.spec.affinity.podAntiAffinity
