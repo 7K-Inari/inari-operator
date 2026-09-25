@@ -1,6 +1,35 @@
 # Default values for inari-operator.
 
+# Production posture (99.9% availability): run replicaCount: 2 with leader
+# election enabled (the default) for active-passive HA, plus
+# podAntiAffinity.enabled and a zone topologySpreadConstraint below. The
+# single-replica default keeps dev installs light and never blocks node drains.
 replicaCount: 1
+
+# PodDisruptionBudget for the operator manager. Rendered only when
+# replicaCount >= 2 — a single-replica install must never block voluntary
+# disruptions (node drains, cluster upgrades).
+pdb:
+  minAvailable: 1
+
+# Opt-in preferred pod anti-affinity spreading replicas across nodes
+# (kubernetes.io/hostname). Recommended when replicaCount >= 2. Use the
+# affinity escape hatch below for required anti-affinity or node affinity.
+podAntiAffinity:
+  enabled: false
+
+# Topology spread constraints, e.g. to spread replicas across zones.
+# labelSelector.matchLabels default to the operator selector labels when
+# omitted from an entry. Example:
+#   topologySpreadConstraints:
+#     - maxSkew: 1
+#       topologyKey: topology.kubernetes.io/zone
+#       whenUnsatisfiable: ScheduleAnyway
+topologySpreadConstraints: []
+
+# Escape hatch: raw affinity merged into the pod spec alongside the
+# podAntiAffinity preset above.
+affinity: {}
 
 image:
   repository: ghcr.io/7k-inari/inari-operator
