@@ -49,8 +49,8 @@ func createClusterDex(t *testing.T, name string, mutate func(*platformv1alpha1.C
 	cr := &platformv1alpha1.ClusterDex{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns(t)},
 		Spec: platformv1alpha1.ClusterDexSpec{
-			TenantReference:  platformv1alpha1.TenantReference{TenantID: "tenant-a", Namespace: "tenant-a"},
-			ClusterID:        "c1",
+			TenantReference:   platformv1alpha1.TenantReference{TenantID: "tenant-a", Namespace: "tenant-a"},
+			ClusterID:         "c1",
 			KeycloakIssuerURL: "https://keycloak.platform.example/realms/inari",
 			ClientSecretRef:   platformv1alpha1.SecretReference{Name: name + "-kc", Namespace: "tenant-a"},
 		},
