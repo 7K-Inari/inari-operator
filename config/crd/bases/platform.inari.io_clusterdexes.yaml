@@ -1,0 +1,265 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: clusterdexes.platform.inari.io
+spec:
+  group: platform.inari.io
+  names:
+    kind: ClusterDex
+    listKind: ClusterDexList
+    plural: clusterdexes
+    shortNames:
+    - cdx
+    singular: clusterdex
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.tenantID
+      name: Tenant
+      type: string
+    - jsonPath: .spec.clusterID
+      name: Cluster
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ClusterDex is a platform-scoped Catalog Item rendering the cluster-local
+          Dex SSO baseline (Dex + ArgoCD OIDC/RBAC configuration) for one managed
+          tenant cluster (ADR-0012). The operator renders Helm values referencing
+          secrets only; the tenant-zone baseline chart owns the manifests.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClusterDexSpec defines the cluster-local Dex SSO baseline for one managed
+              tenant cluster (ADR-0012): Dex federates to platform Keycloak via the
+              per-cluster confidential client cluster-<clusterID>-dex provisioned by the
+              server/Tenant Zone Factory path (W2).
+            properties:
+              argocd:
+                description: ArgoCD configures ArgoCD OIDC/RBAC against the cluster-local
+                  Dex.
+                properties:
+                  adminGroups:
+                    description: |-
+                      AdminGroups are Keycloak group paths (e.g. "/tenant-acme/platform-team")
+                      mapped to ArgoCD role:admin.
+                    items:
+                      type: string
+                    type: array
+                  namespace:
+                    default: argocd
+                    description: Namespace is the ArgoCD namespace in the tenant cluster.
+                    type: string
+                  rbacPolicyExtra:
+                    description: |-
+                      RBACPolicyExtra holds additional raw argocd-rbac-cm policy lines
+                      (e.g. organization-claim scoped project roles).
+                    items:
+                      type: string
+                    type: array
+                  viewerGroups:
+                    description: ViewerGroups are Keycloak group paths mapped to ArgoCD
+                      role:readonly.
+                    items:
+                      type: string
+                    type: array
+                required:
+                - namespace
+                type: object
+              clientSecretRef:
+                description: |-
+                  ClientSecretRef references the Secret provisioned by the W2 server
+                  path holding the cluster-<clusterID>-dex client credentials
+                  (keys "client-id" and "client-secret"). Referenced only — the value is
+                  never copied into CRs, status, logs, or events.
+                properties:
+                  name:
+                    description: Name of the Secret.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: Namespace of the Secret. Defaults to the ClusterDex
+                      CR namespace.
+                    type: string
+                required:
+                - name
+                type: object
+              clusterID:
+                description: ClusterID identifies the managed tenant cluster.
+                maxLength: 63
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              dex:
+                description: Dex configures the cluster-local Dex instance.
+                properties:
+                  image:
+                    description: Image overrides the Dex container image.
+                    type: string
+                  issuerURL:
+                    description: |-
+                      IssuerURL overrides the cluster-local Dex issuer URL. Defaults to the
+                      deterministic in-cluster service URL for this cluster.
+                    type: string
+                  staticTokensSecretRef:
+                    description: |-
+                      StaticTokensSecretRef references a Secret holding break-glass static
+                      user/token configuration. Referenced only; never inlined.
+                    properties:
+                      name:
+                        description: Name of the Secret.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the Secret. Defaults to the ClusterDex
+                          CR namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+              enabled:
+                description: |-
+                  Enabled gates rendering. When false the values bundle is removed and
+                  the cluster keeps its pre-existing (break-glass/static-token) setup.
+                type: boolean
+              impersonateServiceAccount:
+                description: |-
+                  ImpersonateServiceAccount is the tenant-scoped ServiceAccount the
+                  operator impersonates when writing tenant-visible child resources into
+                  the tenant namespace (§5.6: access mediated by impersonation).
+                type: string
+              keycloakIssuerURL:
+                description: |-
+                  KeycloakIssuerURL is the platform Keycloak issuer URL used by Dex's
+                  upstream OIDC connector. Only Dex requires egress to Keycloak.
+                minLength: 1
+                type: string
+              namespace:
+                description: |-
+                  Namespace is the tenant's namespace on the platform cluster. Tenant
+                  access is namespace-isolated (§5.6); child resources the tenant may
+                  observe are written here.
+                minLength: 1
+                type: string
+              tenantID:
+                description: TenantID is the platform-wide tenant identifier this
+                  resource belongs to.
+                maxLength: 63
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+            required:
+            - clientSecretRef
+            - clusterID
+            - keycloakIssuerURL
+            - namespace
+            - tenantID
+            type: object
+          status:
+            description: ClusterDexStatus exposes observed state for the Resources
+              Inventory.
+            properties:
+              clientID:
+                description: ClientID is the effective Keycloak client identifier
+                  for Dex.
+                type: string
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              dexIssuerURL:
+                description: |-
+                  DexIssuerURL is the cluster-local Dex issuer ArgoCD is configured
+                  against.
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+              valuesConfigMap:
+                description: |-
+                  ValuesConfigMap is the tenant-namespace ConfigMap holding the rendered
+                  Helm values consumed by the tenant-zone baseline chart (W3).
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -84,3 +84,22 @@ spec:
   namespace: acme
   sourceRepos:
     - https://github.com/example/acme-*
+---
+apiVersion: platform.inari.io/v1alpha1
+kind: ClusterDex
+metadata:
+  name: acme-c1
+  namespace: inari-system
+spec:
+  tenantID: acme
+  namespace: acme
+  clusterID: c1
+  keycloakIssuerURL: https://keycloak.platform.example.com/realms/inari
+  clientSecretRef:
+    name: cluster-c1-dex
+    namespace: acme
+  argocd:
+    adminGroups:
+      - /tenant-acme/platform-team
+    viewerGroups:
+      - /tenant-acme/viewers

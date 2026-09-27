@@ -2,13 +2,14 @@ suite: inari-operator CRDs
 templates:
   - platform.inari.io_argoprojects.yaml
   - platform.inari.io_certissuers.yaml
+  - platform.inari.io_clusterdexes.yaml
   - platform.inari.io_dnsrecords.yaml
   - platform.inari.io_dnszones.yaml
   - platform.inari.io_keycloakclients.yaml
   - platform.inari.io_keycloakrealms.yaml
   - platform.inari.io_tenantnamespaces.yaml
 tests:
-  - it: renders all seven platform.inari.io CRDs
+  - it: renders all eight platform.inari.io CRDs
     asserts:
       - hasDocuments:
           count: 1
@@ -28,6 +29,17 @@ tests:
       - equal:
           path: metadata.name
           value: argoprojects.platform.inari.io
+      - equal:
+          path: spec.group
+          value: platform.inari.io
+  - it: renders the clusterdexes CRD
+    template: platform.inari.io_clusterdexes.yaml
+    asserts:
+      - isKind:
+          of: CustomResourceDefinition
+      - equal:
+          path: metadata.name
+          value: clusterdexes.platform.inari.io
       - equal:
           path: spec.group
           value: platform.inari.io
