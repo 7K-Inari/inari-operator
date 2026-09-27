@@ -77,6 +77,7 @@ tests:
             resources:
               - argoprojects
               - certissuers
+              - clusterdexes
               - dnsrecords
               - dnszones
               - keycloakclients

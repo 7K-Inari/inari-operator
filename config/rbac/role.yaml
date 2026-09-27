@@ -7,13 +7,7 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
-  - ""
-  resources:
+  - configmaps
   - namespaces
   - resourcequotas
   - secrets
@@ -25,6 +19,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 - apiGroups:
   - ""
   resources:
@@ -84,6 +85,7 @@ rules:
   resources:
   - argoprojects
   - certissuers
+  - clusterdexes
   - dnsrecords
   - dnszones
   - keycloakclients
@@ -102,6 +104,7 @@ rules:
   resources:
   - argoprojects/finalizers
   - certissuers/finalizers
+  - clusterdexes/finalizers
   - dnsrecords/finalizers
   - dnszones/finalizers
   - keycloakclients/finalizers
@@ -114,6 +117,7 @@ rules:
   resources:
   - argoprojects/status
   - certissuers/status
+  - clusterdexes/status
   - dnsrecords/status
   - dnszones/status
   - keycloakclients/status
@@ -135,11 +139,3 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterroles
-  resourceNames:
-  - admin
-  verbs:
-  - bind

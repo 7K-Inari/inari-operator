@@ -26,6 +26,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CertIssuer{}, &CertIssuerList{},
 		&ArgoProject{}, &ArgoProjectList{},
 		&TenantNamespace{}, &TenantNamespaceList{},
+		&ClusterDex{}, &ClusterDexList{},
 	)
 	metav1.AddToGroupVersion(scheme, GroupVersion)
 	return nil

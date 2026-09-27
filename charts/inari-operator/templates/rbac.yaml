@@ -18,6 +18,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
   - namespaces
   - resourcequotas
   - secrets
@@ -88,6 +89,7 @@ rules:
   resources:
   - argoprojects
   - certissuers
+  - clusterdexes
   - dnsrecords
   - dnszones
   - keycloakclients
@@ -106,6 +108,7 @@ rules:
   resources:
   - argoprojects/finalizers
   - certissuers/finalizers
+  - clusterdexes/finalizers
   - dnsrecords/finalizers
   - dnszones/finalizers
   - keycloakclients/finalizers
@@ -118,6 +121,7 @@ rules:
   resources:
   - argoprojects/status
   - certissuers/status
+  - clusterdexes/status
   - dnsrecords/status
   - dnszones/status
   - keycloakclients/status
