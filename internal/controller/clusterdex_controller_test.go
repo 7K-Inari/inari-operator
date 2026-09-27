@@ -208,6 +208,60 @@ func TestClusterDexMissingSecret(t *testing.T) {
 	}
 }
 
+func TestClusterDexSecretMissingKeys(t *testing.T) {
+	r := newClusterDexReconciler()
+	nsObj := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "tenant-a"}}
+	if err := testClient.Create(context.Background(), nsObj); err != nil && !apierrors.IsAlreadyExists(err) {
+		t.Fatal(err)
+	}
+	s := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "badkeys-kc", Namespace: "tenant-a"},
+		Type:       corev1.SecretTypeOpaque,
+		StringData: map[string]string{"client-id": "cluster-c1-dex"}, // client-secret missing
+	}
+	if err := testClient.Create(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	cr := createClusterDex(t, "badkeys", nil)
+	key := types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}
+
+	var res ctrl.Result
+	for i := 0; i < 2; i++ {
+		var err error
+		res, err = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+		if err != nil {
+			t.Fatalf("missing secret keys should not error (graceful rollout): %v", err)
+		}
+	}
+	if res.RequeueAfter == 0 {
+		t.Fatal("expected requeue while secret is incomplete")
+	}
+	got := getReady(t, key)
+	cond := meta.FindStatusCondition(got.Status.Conditions, platformv1alpha1.ConditionFailed)
+	if cond == nil || cond.Status != metav1.ConditionTrue || !strings.Contains(cond.Message, "client-secret") {
+		t.Fatalf("expected Failed condition naming the missing key: %+v", got.Status.Conditions)
+	}
+	var cm corev1.ConfigMap
+	if err := testClient.Get(context.Background(), valuesConfigMapKey(cr), &cm); !apierrors.IsNotFound(err) {
+		t.Fatal("no ConfigMap must be rendered with an incomplete client secret")
+	}
+
+	// Completing the secret recovers.
+	var live corev1.Secret
+	if err := testClient.Get(context.Background(), types.NamespacedName{Name: "badkeys-kc", Namespace: "tenant-a"}, &live); err != nil {
+		t.Fatal(err)
+	}
+	live.Data["client-secret"] = []byte("client-secret-value")
+	if err := testClient.Update(context.Background(), &live); err != nil {
+		t.Fatal(err)
+	}
+	reconcileTwice(t, r, key)
+	got = getReady(t, key)
+	if !meta.IsStatusConditionTrue(got.Status.Conditions, platformv1alpha1.ConditionReady) {
+		t.Fatalf("not ready after secret completed: %+v", got.Status.Conditions)
+	}
+}
+
 func TestClusterDexDisabledNoOp(t *testing.T) {
 	r := newClusterDexReconciler()
 	createDexClientSecret(t, "off-kc", "tenant-a")

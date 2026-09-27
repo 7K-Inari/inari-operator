@@ -177,6 +177,16 @@ func TestValuesNeverEmbedSecretMaterial(t *testing.T) {
 	}
 }
 
+func TestValuesRejectsNewlineInGroups(t *testing.T) {
+	cr := testClusterDex()
+	cr.Spec.ArgoCD = &platformv1alpha1.ClusterDexArgoCD{
+		AdminGroups: []string{"/tenant-acme/team\np, *, *, *, *, allow"},
+	}
+	if _, err := renderClusterDexValues(cr); err == nil {
+		t.Fatal("expected error: newline in group would inject RBAC policy lines")
+	}
+}
+
 func TestValuesDisabledRendersNothing(t *testing.T) {
 	cr := testClusterDex()
 	cr.Spec.Enabled = boolPtr(false)

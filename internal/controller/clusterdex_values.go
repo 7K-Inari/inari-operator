@@ -104,6 +104,11 @@ func renderClusterDexValues(cr *platformv1alpha1.ClusterDex) (string, error) {
 	}
 
 	var csv strings.Builder
+	for _, g := range append(append([]string{}, adminGroups...), viewerGroups...) {
+		if strings.ContainsAny(g, "\r\n") {
+			return "", fmt.Errorf("argocd group %q must be a single line", g)
+		}
+	}
 	for _, g := range adminGroups {
 		fmt.Fprintf(&csv, "g, %s, role:admin\n", g)
 	}
