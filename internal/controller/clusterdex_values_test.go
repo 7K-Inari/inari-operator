@@ -199,6 +199,38 @@ func TestValuesDisabledRendersNothing(t *testing.T) {
 	}
 }
 
+func TestValuesArgoCDStaticClient(t *testing.T) {
+	v := render(t, testClusterDex())
+
+	clients, ok := dig(t, v, "dex", "config", "staticClients").([]any)
+	if !ok || len(clients) != 1 {
+		t.Fatalf("staticClients = %v (ArgoCD needs a registered Dex client)", clients)
+	}
+	c := clients[0].(map[string]any)
+	if c["id"] != "argocd" {
+		t.Fatalf("static client id = %v", c["id"])
+	}
+	secret, _ := c["secret"].(string)
+	if !strings.HasPrefix(secret, "$") {
+		t.Fatalf("static client secret must be a reference marker, got %q", secret)
+	}
+	// ArgoCD's OIDC config must reference the same marker so the chart wires
+	// one shared generated secret on both sides.
+	if got := dig(t, v, "argocd", "oidc", "clientSecret"); got != secret {
+		t.Fatalf("argocd oidc clientSecret = %v, want shared marker %q", got, secret)
+	}
+}
+
+func TestDefaultDexIssuerURLValidForLongClusterIDs(t *testing.T) {
+	long := strings.Repeat("a", 63)
+	issuer := defaultDexIssuerURL(long)
+	host := strings.TrimPrefix(issuer, "http://")
+	label := strings.SplitN(host, ".", 2)[0]
+	if len(label) > 63 {
+		t.Fatalf("issuer host label %q exceeds 63 chars (invalid DNS)", label)
+	}
+}
+
 func TestDefaultDexIssuerURLDeterministic(t *testing.T) {
 	first, second := defaultDexIssuerURL("c1"), defaultDexIssuerURL("c1")
 	if first != second {

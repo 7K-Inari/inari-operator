@@ -14,11 +14,17 @@ import (
 // operator never renders the secret value itself.
 const keycloakClientSecretMarker = "$KEYCLOAK_CLIENT_SECRET"
 
+// argoCDClientSecretMarker is the placeholder the chart resolves to the
+// generated ArgoCD OIDC client secret (registered as a Dex static client).
+const argoCDClientSecretMarker = "$ARGOCD_CLIENT_SECRET"
+
 // defaultDexIssuerURL derives the deterministic cluster-local Dex issuer for
 // a managed cluster. ArgoCD is configured against this issuer only — never
-// against platform Keycloak directly (ADR-0012).
+// against platform Keycloak directly (ADR-0012). The service name is capped
+// and hashed like other tenant child names so long cluster IDs stay valid
+// DNS-1123 labels.
 func defaultDexIssuerURL(clusterID string) string {
-	return fmt.Sprintf("http://dex-%s.dex.svc.cluster.local:5556/dex", clusterID)
+	return fmt.Sprintf("http://%s.dex.svc.cluster.local:5556/dex", tenantChildName("dex", clusterID))
 }
 
 // dexIssuerURL resolves the effective Dex issuer for the CR.
@@ -54,6 +60,16 @@ func renderClusterDexValues(cr *platformv1alpha1.ClusterDex) (string, error) {
 	dexConfig := map[string]any{
 		"issuer":           issuer,
 		"enablePasswordDB": true, // break-glass static login is always preserved
+		// ArgoCD authenticates to Dex as this static client. The chart owns
+		// the shared secret (marker resolved at install time) and supplies
+		// redirectURIs for the ArgoCD callback URL.
+		"staticClients": []any{
+			map[string]any{
+				"id":     "argocd",
+				"name":   "ArgoCD",
+				"secret": argoCDClientSecretMarker,
+			},
+		},
 		"connectors": []any{
 			map[string]any{
 				"type": "oidc",
@@ -125,9 +141,10 @@ func renderClusterDexValues(cr *platformv1alpha1.ClusterDex) (string, error) {
 		// per-user sessions are absent (ADR-0012).
 		"localAdminEnabled": true,
 		"oidc": map[string]any{
-			"url":      issuer,
-			"clientID": "argocd",
-			"scopes":   scopes,
+			"url":          issuer,
+			"clientID":     "argocd",
+			"clientSecret": argoCDClientSecretMarker,
+			"scopes":       scopes,
 		},
 		"rbac": map[string]any{
 			// Fail closed: no implicit access beyond break-glass local admin
