@@ -164,9 +164,21 @@ func (r *ClusterDexReconciler) waiting(ctx context.Context, cr *platformv1alpha1
 	return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 }
 
-// applyChild upserts one tenant child with the tenant label.
+// applyChild upserts one tenant child with the tenant label. The desired
+// content is re-applied inside the mutate closure because CreateOrUpdate
+// replaces child with the cluster state on the update path.
 func (r *ClusterDexReconciler) applyChild(ctx context.Context, wc client.Client, cr *platformv1alpha1.ClusterDex, child client.Object) error {
+	desired, ok := child.DeepCopyObject().(client.Object)
+	if !ok {
+		return fmt.Errorf("deepcopy %s %q: unexpected type", child.GetObjectKind().GroupVersionKind().Kind, child.GetName())
+	}
 	if _, err := controllerutil.CreateOrUpdate(ctx, wc, child, func() error {
+		switch c := child.(type) {
+		case *unstructured.Unstructured:
+			c.Object["spec"] = desired.(*unstructured.Unstructured).Object["spec"]
+		case *corev1.ConfigMap:
+			c.Data = desired.(*corev1.ConfigMap).Data
+		}
 		labels := child.GetLabels()
 		if labels == nil {
 			labels = map[string]string{}

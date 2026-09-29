@@ -237,6 +237,40 @@ func TestClusterDexIdempotent(t *testing.T) {
 	}
 }
 
+func TestClusterDexSpecChangePropagates(t *testing.T) {
+	r := newClusterDexReconciler()
+	createDexClientSecret(t, "prop-kc", "tenant-a")
+	createDexConfigSecret(t, "prop-config", "tenant-a")
+	cr := createClusterDex(t, "prop", func(c *platformv1alpha1.ClusterDex) {
+		c.Spec.ArgoCD.AdminGroups = []string{"/tenant-a/platform-team"}
+	})
+	key := types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}
+	reconcileTwice(t, r, key)
+
+	// Change the spec: chart version bump + a new RBAC group mapping.
+	got := getReady(t, key)
+	got.Spec.Dex.ChartVersion = "0.26.0"
+	got.Spec.ArgoCD.ViewerGroups = []string{"/tenant-a/devs"}
+	if err := testClient.Update(context.Background(), &got); err != nil {
+		t.Fatal(err)
+	}
+	reconcileTwice(t, r, key)
+
+	app := getDexApplication(t, dexApplicationKey(cr))
+	spec, _ := app.Object["spec"].(map[string]any)
+	src, _ := spec["source"].(map[string]any)
+	if src["targetRevision"] != "0.26.0" {
+		t.Fatalf("targetRevision not updated: %v", src["targetRevision"])
+	}
+	var rbacCM corev1.ConfigMap
+	if err := testClient.Get(context.Background(), argoCDRBACCMKey(), &rbacCM); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rbacCM.Data["policy.csv"], "g, /tenant-a/devs, role:readonly") {
+		t.Fatalf("policy.csv not updated:\n%s", rbacCM.Data["policy.csv"])
+	}
+}
+
 func TestClusterDexMissingClientSecret(t *testing.T) {
 	r := newClusterDexReconciler()
 	cr := createClusterDex(t, "nosecret", nil)
