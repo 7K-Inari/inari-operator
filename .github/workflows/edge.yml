@@ -1,0 +1,155 @@
+name: edge
+
+# Per-merge edge releases: every push to main tags the operator image
+# <pending>-<shortsha> (plus :edge and :edge-<sha>), publishes both
+# charts at their pending edge versions, and cuts a GitHub prerelease.
+# Skipped on release merges — release.yml/chart-release.yaml cover that
+# commit.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE: ghcr.io/7k-inari/inari-operator
+
+concurrency:
+  group: edge-main
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.gate.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Skip on release merges
+        id: gate
+        run: |
+          set -euo pipefail
+          msg="$(git log -1 --pretty=%s)"
+          parent2=""
+          if [ "$(git rev-list --parents -n1 HEAD | wc -w)" -gt 2 ]; then
+            parent2="$(git log -1 --pretty=%s HEAD^2)"
+          fi
+          if echo "$msg" | grep -qiE '^chore(\(.*\))?: release' \
+             || echo "$parent2" | grep -qiE '^chore(\(.*\))?: release'; then
+            echo "release merge detected ($msg) — skipping edge"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  version:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      edge: ${{ steps.v.outputs.edge }}
+      charts: ${{ steps.charts.outputs.charts }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve image edge version
+        id: v
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "edge=$(scripts/resolve-edge-version.sh .)" >> "$GITHUB_OUTPUT"
+      - name: Resolve chart edge versions
+        id: charts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          entries="[]"
+          for chart_yaml in charts/*/Chart.yaml; do
+            chart_path="$(dirname "$chart_yaml")"
+            version="$(scripts/resolve-edge-version.sh "$chart_path")"
+            entries="$(jq -c --arg p "$chart_path" --arg v "$version" '. + [{path: $p, version: $v}]' <<< "$entries")"
+          done
+          echo "charts=$entries" >> "$GITHUB_OUTPUT"
+
+  edge-image:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push edge image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:edge-${{ github.sha }}
+            ${{ env.IMAGE }}:edge
+            ${{ env.IMAGE }}:${{ needs.version.outputs.edge }}
+
+  edge-charts:
+    needs: version
+    if: needs.version.outputs.charts != '' && needs.version.outputs.charts != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        chart: ${{ fromJSON(needs.version.outputs.charts) }}
+    runs-on: ubuntu-latest
+    env:
+      CHART_PATH: ${{ matrix.chart.path }}
+      EDGE_VERSION: ${{ matrix.chart.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+      - name: Package chart at edge version
+        run: |
+          mkdir -p dist
+          helm package "$CHART_PATH" --version "$EDGE_VERSION" -d dist
+      - name: Login to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Push chart as OCI artifact
+        run: helm push "dist/$(basename "$CHART_PATH")-${EDGE_VERSION}.tgz" oci://ghcr.io/7k-inari/charts
+
+  prerelease:
+    needs: [version, edge-image, edge-charts]
+    if: always() && needs.edge-image.result == 'success' && needs.edge-charts.result != 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create edge prerelease + move the edge channel tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EDGE: ${{ needs.version.outputs.edge }}
+        run: |
+          set -euo pipefail
+          if gh release view "v${EDGE}" > /dev/null 2>&1; then
+            echo "prerelease v${EDGE} already exists — skipping create (workflow rerun)"
+          else
+            gh release create "v${EDGE}" \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "edge ${EDGE}" \
+              --notes "Edge build from ${GITHUB_SHA}. Image: \`${{ env.IMAGE }}:${EDGE}\`; charts at their own \`*-${GITHUB_SHA:0:7}\` versions under \`oci://ghcr.io/7k-inari/charts\`. Superseded by the next stable vX.Y.Z release."
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f edge "$GITHUB_SHA"
+          git push -f origin refs/tags/edge
+          if gh release view edge > /dev/null 2>&1; then
+            gh release edit edge --prerelease --title "edge (v${EDGE})" \
+              --notes "Latest edge build: \`v${EDGE}\` (${GITHUB_SHA})."
+          else
+            gh release create edge --prerelease --target "$GITHUB_SHA" \
+              --title "edge (v${EDGE})" \
+              --notes "Latest edge build: \`v${EDGE}\` (${GITHUB_SHA})."
+          fi
