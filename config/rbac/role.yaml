@@ -35,6 +35,7 @@ rules:
 - apiGroups:
   - argoproj.io
   resources:
+  - applications
   - appprojects
   verbs:
   - create

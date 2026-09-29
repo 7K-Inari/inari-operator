@@ -32,8 +32,10 @@ spec:
         description: |-
           ClusterDex is a platform-scoped Catalog Item rendering the cluster-local
           Dex SSO baseline (Dex + ArgoCD OIDC/RBAC configuration) for one managed
-          tenant cluster (ADR-0012). The operator renders Helm values referencing
-          secrets only; the tenant-zone baseline chart owns the manifests.
+          tenant cluster (ADR-0012). The operator renders a single-source ArgoCD
+          Application consuming the official dexidp chart plus the ArgoCD OIDC/RBAC
+          ConfigMaps into the tenant cluster's ArgoCD namespace; secret material is
+          referenced only, never read.
         properties:
           apiVersion:
             description: |-
@@ -74,6 +76,34 @@ spec:
                     default: argocd
                     description: Namespace is the ArgoCD namespace in the tenant cluster.
                     type: string
+                  oidcClientSecretRef:
+                    description: |-
+                      OIDCClientSecretRef references the Secret holding the shared Dex static
+                      client secret ArgoCD authenticates with (referenced in argocd-cm as
+                      $<name>:<key>). Referenced only; never read.
+                    properties:
+                      key:
+                        default: client-secret
+                        description: Key inside the Secret. Defaults to "client-secret".
+                        type: string
+                      name:
+                        description: Name of the Secret.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the Secret. Defaults to the ArgoCD
+                          namespace.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  project:
+                    default: default
+                    description: |-
+                      Project is the ArgoCD AppProject the rendered Dex Application belongs
+                      to. Defaults to "default".
+                    type: string
                   rbacPolicyExtra:
                     description: |-
                       RBACPolicyExtra holds additional raw argocd-rbac-cm policy lines
@@ -89,6 +119,7 @@ spec:
                     type: array
                 required:
                 - namespace
+                - project
                 type: object
               clientSecretRef:
                 description: |-
@@ -117,14 +148,74 @@ spec:
               dex:
                 description: Dex configures the cluster-local Dex instance.
                 properties:
+                  chartVersion:
+                    default: 0.25.2
+                    description: |-
+                      ChartVersion pins the official dexidp dex Helm chart version rendered
+                      as the Application targetRevision. Bumped deliberately.
+                    type: string
+                  configSecretRef:
+                    description: |-
+                      ConfigSecretRef references the ESO/Vault-synced Secret holding the full
+                      Dex config.yaml (key "config.yaml"). Rendered as the upstream chart's
+                      configSecret.name with configSecret.create=false. Required when the
+                      baseline is enabled; referenced only, never read.
+                    properties:
+                      name:
+                        description: Name of the Secret.
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: Namespace of the Secret. Defaults to the ClusterDex
+                          CR namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
                   image:
-                    description: Image overrides the Dex container image.
+                    description: Image overrides the Dex container image (repository:tag).
                     type: string
                   issuerURL:
                     description: |-
                       IssuerURL overrides the cluster-local Dex issuer URL. Defaults to the
                       deterministic in-cluster service URL for this cluster.
                     type: string
+                  route:
+                    description: Route exposes Dex via a Gateway API HTTPRoute on
+                      an existing Gateway.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations added to the HTTPRoute.
+                        type: object
+                      gatewayRef:
+                        description: GatewayRef points at the existing Gateway. Required.
+                        properties:
+                          name:
+                            description: Name of the Gateway.
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: Namespace of the Gateway. Defaults to the
+                              Dex namespace.
+                            type: string
+                          sectionName:
+                            description: SectionName selects a specific listener on
+                              the Gateway.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      hostnames:
+                        description: Hostnames the HTTPRoute matches. Empty = match
+                          all hostnames.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - gatewayRef
+                    type: object
                   staticTokensSecretRef:
                     description: |-
                       StaticTokensSecretRef references a Secret holding break-glass static
@@ -141,11 +232,14 @@ spec:
                     required:
                     - name
                     type: object
+                required:
+                - chartVersion
                 type: object
               enabled:
                 description: |-
-                  Enabled gates rendering. When false the values bundle is removed and
-                  the cluster keeps its pre-existing (break-glass/static-token) setup.
+                  Enabled gates rendering. When false the rendered baseline (Dex
+                  Application + ArgoCD OIDC/RBAC ConfigMaps) is removed and the cluster
+                  keeps its pre-existing (break-glass/static-token) setup.
                 type: boolean
               impersonateServiceAccount:
                 description: |-
@@ -244,6 +338,11 @@ spec:
                   - type
                   type: object
                 type: array
+              dexApplication:
+                description: |-
+                  DexApplication is the rendered ArgoCD Application name for this
+                  cluster's Dex (official dexidp chart, single-source).
+                type: string
               dexIssuerURL:
                 description: |-
                   DexIssuerURL is the cluster-local Dex issuer ArgoCD is configured
@@ -252,11 +351,6 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
-              valuesConfigMap:
-                description: |-
-                  ValuesConfigMap is the tenant-namespace ConfigMap holding the rendered
-                  Helm values consumed by the tenant-zone baseline chart (W3).
-                type: string
             type: object
         type: object
     served: true

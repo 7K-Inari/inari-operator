@@ -212,6 +212,33 @@ func TestArgoProjectRendersAppProject(t *testing.T) {
 		t.Fatalf("destination namespace = %v", d0["namespace"])
 	}
 
+	// Auto-upgrade: the official dexidp chart repo is unioned into
+	// sourceRepos on every reconcile, exactly once.
+	repos, _, _ := unstructured.NestedSlice(child.Object, "spec", "sourceRepos")
+	count := 0
+	for _, repo := range repos {
+		if repo == "https://charts.dexidp.io" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("sourceRepos must contain charts.dexidp.io exactly once: %v", repos)
+	}
+	reconcileTwice(t, r, key)
+	if err := testClient.Get(context.Background(), types.NamespacedName{Name: name, Namespace: "argocd"}, &child); err != nil {
+		t.Fatal(err)
+	}
+	repos, _, _ = unstructured.NestedSlice(child.Object, "spec", "sourceRepos")
+	count = 0
+	for _, repo := range repos {
+		if repo == "https://charts.dexidp.io" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("charts.dexidp.io union not idempotent: %v", repos)
+	}
+
 	var got platformv1alpha1.ArgoProject
 	if err := testClient.Get(context.Background(), key, &got); err != nil {
 		t.Fatal(err)

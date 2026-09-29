@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -21,12 +22,13 @@ import (
 )
 
 // ClusterDexReconciler reconciles ClusterDex Catalog Items (ADR-0012): it
-// renders the per-cluster Helm values for the cluster-local Dex SSO baseline
-// (Dex federating to platform Keycloak via the cluster-<id>-dex client, plus
-// ArgoCD OIDC/RBAC against the cluster-local Dex issuer) into a ConfigMap in
-// the tenant namespace. The tenant-zone baseline chart (W3) consumes the
-// values and owns all manifests; the operator never pushes into tenant
-// clusters and never reads secret values.
+// renders a single-source ArgoCD Application deploying the cluster-local Dex
+// from the official dexidp chart (config mounted from an ESO/Vault-synced
+// Secret, configSecret.create=false) plus the ArgoCD OIDC/RBAC baseline
+// (argocd-cm, argocd-rbac-cm) into the ArgoCD namespace. Dex federates to
+// platform Keycloak via the cluster-<id>-dex client; ArgoCD is pointed at the
+// cluster-local Dex issuer only — never Keycloak directly. The operator never
+// reads secret values.
 type ClusterDexReconciler struct {
 	client.Client
 	Scheme     *runtime.Scheme
@@ -40,6 +42,7 @@ type ClusterDexReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=impersonate
+// +kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=get;list;watch;create;update;patch;delete
 
 func (r *ClusterDexReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -49,19 +52,16 @@ func (r *ClusterDexReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	cmName := tenantChildName(cr.Name, "dex-values")
-
 	if !cr.DeletionTimestamp.IsZero() {
 		deleted, err := finalize(ctx, r.Client, &cr, func(ctx context.Context) error {
-			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName, Namespace: cr.Spec.Namespace}}
-			return client.IgnoreNotFound(r.deleteChild(ctx, &cr, cm))
+			return r.deleteChildren(ctx, &cr)
 		})
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 		if deleted {
 			event(r.Recorder, &cr, corev1.EventTypeNormal, "Deleted",
-				fmt.Sprintf("Dex baseline values %q deleted for tenant %q cluster %q", cmName, cr.Spec.TenantID, cr.Spec.ClusterID))
+				fmt.Sprintf("Dex baseline deleted for tenant %q cluster %q", cr.Spec.TenantID, cr.Spec.ClusterID))
 		}
 		return ctrl.Result{}, nil
 	}
@@ -74,44 +74,41 @@ func (r *ClusterDexReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Disabled baseline: remove any rendered values and report Ready. The
+	// Disabled baseline: remove any rendered children and report Ready. The
 	// cluster keeps its pre-existing (break-glass/static-token) setup.
 	if !cr.Spec.IsEnabled() {
-		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName, Namespace: cr.Spec.Namespace}}
-		if err := r.deleteChild(ctx, &cr, cm); err != nil && !apierrors.IsNotFound(err) {
+		if err := r.deleteChildren(ctx, &cr); err != nil {
 			return ctrl.Result{}, err
 		}
-		return r.ready(ctx, &cr, "", "", fmt.Sprintf("Dex baseline disabled for cluster %q", cr.Spec.ClusterID))
+		return r.ready(ctx, &cr, "", fmt.Sprintf("Dex baseline disabled for cluster %q", cr.Spec.ClusterID))
 	}
 
-	// Verify the referenced client secret exists — reference only: metadata
-	// and key presence, never the values (they must not reach logs, events,
-	// status, or rendered output).
-	secretNS := cr.Spec.ClientSecretRef.Namespace
-	if secretNS == "" {
-		secretNS = cr.Namespace
+	// Verify the referenced secrets exist — reference only: metadata and key
+	// presence, never the values (they must not reach logs, events, status,
+	// or rendered output).
+	if res, ok, err := r.checkSecret(ctx, &cr, cr.Spec.ClientSecretRef, secretRefNamespace(&cr, cr.Spec.ClientSecretRef),
+		[]string{"client-id", "client-secret"}, "W2 cluster-<id>-dex provisioning"); !ok || err != nil {
+		return res, err
 	}
-	var secret corev1.Secret
-	if err := r.Get(ctx, types.NamespacedName{Name: cr.Spec.ClientSecretRef.Name, Namespace: secretNS}, &secret); err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("waiting for Dex client secret %q in namespace %q (W2 cluster-<id>-dex provisioning)",
-				cr.Spec.ClientSecretRef.Name, secretNS)
-			platformv1alpha1.SetFailed(&cr.Status.Conditions, cr.Generation, msg)
-			_ = r.Status().Update(ctx, &cr)
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-		}
+	if cr.Spec.Dex == nil || cr.Spec.Dex.ConfigSecretRef == nil {
+		return r.waiting(ctx, &cr, "spec.dex.configSecretRef is required: Dex config comes from an ESO/Vault-synced Secret (configSecret.create=false)")
+	}
+	configRef := *cr.Spec.Dex.ConfigSecretRef
+	if res, ok, err := r.checkSecret(ctx, &cr, configRef, secretRefNamespace(&cr, configRef),
+		[]string{"config.yaml"}, "ESO/Vault dex config sync"); !ok || err != nil {
+		return res, err
+	}
+	if cr.Spec.ArgoCD == nil || cr.Spec.ArgoCD.OIDCClientSecretRef == nil {
+		return r.waiting(ctx, &cr, "spec.argocd.oidcClientSecretRef is required: argocd-cm references the Dex static client secret by name/key")
+	}
+
+	app, err := renderDexApplication(&cr)
+	if err != nil {
+		platformv1alpha1.SetFailed(&cr.Status.Conditions, cr.Generation, err.Error())
+		_ = r.Status().Update(ctx, &cr)
 		return ctrl.Result{}, err
 	}
-	for _, k := range []string{"client-id", "client-secret"} {
-		if _, ok := secret.Data[k]; !ok {
-			msg := fmt.Sprintf("Dex client secret %q in namespace %q is missing key %q", cr.Spec.ClientSecretRef.Name, secretNS, k)
-			platformv1alpha1.SetFailed(&cr.Status.Conditions, cr.Generation, msg)
-			_ = r.Status().Update(ctx, &cr)
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-		}
-	}
-
-	values, err := renderClusterDexValues(&cr)
+	cm, rbacCM, err := renderArgoCDConfigMaps(&cr)
 	if err != nil {
 		platformv1alpha1.SetFailed(&cr.Status.Conditions, cr.Generation, err.Error())
 		_ = r.Status().Update(ctx, &cr)
@@ -122,43 +119,80 @@ func (r *ClusterDexReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName, Namespace: cr.Spec.Namespace}}
-	if _, err := controllerutil.CreateOrUpdate(ctx, wc, cm, func() error {
-		if cm.Labels == nil {
-			cm.Labels = map[string]string{}
+	for _, child := range []client.Object{app, cm, rbacCM} {
+		if err := r.applyChild(ctx, wc, &cr, child); err != nil {
+			platformv1alpha1.SetFailed(&cr.Status.Conditions, cr.Generation, err.Error())
+			_ = r.Status().Update(ctx, &cr)
+			return ctrl.Result{}, err
 		}
-		cm.Labels[tenantLabel] = cr.Spec.TenantID
-		cm.Data = map[string]string{"values.yaml": values}
-		return nil
-	}); err != nil {
-		platformv1alpha1.SetFailed(&cr.Status.Conditions, cr.Generation, err.Error())
-		_ = r.Status().Update(ctx, &cr)
-		return ctrl.Result{}, fmt.Errorf("write dex values ConfigMap: %w", err)
 	}
 
-	issuer := dexIssuerURL(&cr)
-	res, err := r.ready(ctx, &cr, cmName, issuer,
-		fmt.Sprintf("Dex baseline values %q rendered for cluster %q", cmName, cr.Spec.ClusterID))
+	res, err := r.ready(ctx, &cr, app.GetName(),
+		fmt.Sprintf("Dex baseline %q rendered for cluster %q", app.GetName(), cr.Spec.ClusterID))
 	if err != nil {
 		return res, err
 	}
-	logger.Info("reconciled ClusterDex", "tenant", cr.Spec.TenantID, "cluster", cr.Spec.ClusterID, "configMap", cmName)
+	logger.Info("reconciled ClusterDex", "tenant", cr.Spec.TenantID, "cluster", cr.Spec.ClusterID, "application", app.GetName())
 	return res, nil
+}
+
+// checkSecret verifies a referenced Secret exists and carries the required
+// keys. Values are never read beyond key presence.
+func (r *ClusterDexReconciler) checkSecret(ctx context.Context, cr *platformv1alpha1.ClusterDex, ref platformv1alpha1.SecretReference, namespace string, keys []string, hint string) (ctrl.Result, bool, error) {
+	var secret corev1.Secret
+	if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: namespace}, &secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			res, err := r.waiting(ctx, cr, fmt.Sprintf("waiting for secret %q in namespace %q (%s)", ref.Name, namespace, hint))
+			return res, false, err
+		}
+		return ctrl.Result{}, false, err
+	}
+	for _, k := range keys {
+		if _, ok := secret.Data[k]; !ok {
+			res, err := r.waiting(ctx, cr, fmt.Sprintf("secret %q in namespace %q is missing key %q", ref.Name, namespace, k))
+			return res, false, err
+		}
+	}
+	return ctrl.Result{}, true, nil
+}
+
+// waiting records a Failed condition and requeues without erroring, so
+// rollout ordering (secrets synced after the CR) stays graceful.
+func (r *ClusterDexReconciler) waiting(ctx context.Context, cr *platformv1alpha1.ClusterDex, msg string) (ctrl.Result, error) {
+	platformv1alpha1.SetFailed(&cr.Status.Conditions, cr.Generation, msg)
+	_ = r.Status().Update(ctx, cr)
+	return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+}
+
+// applyChild upserts one tenant child with the tenant label.
+func (r *ClusterDexReconciler) applyChild(ctx context.Context, wc client.Client, cr *platformv1alpha1.ClusterDex, child client.Object) error {
+	if _, err := controllerutil.CreateOrUpdate(ctx, wc, child, func() error {
+		labels := child.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels[tenantLabel] = cr.Spec.TenantID
+		child.SetLabels(labels)
+		return nil
+	}); err != nil {
+		return fmt.Errorf("write %s %q in namespace %q: %w", child.GetObjectKind().GroupVersionKind().Kind, child.GetName(), child.GetNamespace(), err)
+	}
+	return nil
 }
 
 // ready records status idempotently: when nothing changed and Ready is
 // already recorded for this generation, no status write happens.
-func (r *ClusterDexReconciler) ready(ctx context.Context, cr *platformv1alpha1.ClusterDex, cmName, issuer, msg string) (ctrl.Result, error) {
-	unchanged := cr.Status.ValuesConfigMap == cmName &&
-		cr.Status.DexIssuerURL == issuer &&
+func (r *ClusterDexReconciler) ready(ctx context.Context, cr *platformv1alpha1.ClusterDex, appName, msg string) (ctrl.Result, error) {
+	unchanged := cr.Status.DexApplication == appName &&
+		cr.Status.DexIssuerURL == dexIssuerURL(cr) &&
 		cr.Status.ClientID == cr.Spec.DexClientID() &&
 		statusConditionsReady(cr.Status.Conditions, cr.Generation)
 	if unchanged {
 		return ctrl.Result{}, nil
 	}
 	cr.Status.ClientID = cr.Spec.DexClientID()
-	cr.Status.ValuesConfigMap = cmName
-	cr.Status.DexIssuerURL = issuer
+	cr.Status.DexApplication = appName
+	cr.Status.DexIssuerURL = dexIssuerURL(cr)
 	cr.Status.ObservedGeneration = cr.Generation
 	platformv1alpha1.SetReady(&cr.Status.Conditions, cr.Generation, platformv1alpha1.ReasonReady, msg)
 	if err := r.Status().Update(ctx, cr); err != nil {
@@ -167,14 +201,27 @@ func (r *ClusterDexReconciler) ready(ctx context.Context, cr *platformv1alpha1.C
 	return ctrl.Result{}, nil
 }
 
-// deleteChild removes a tenant-namespace child, impersonating the tenant
-// identity when one is configured (§5.6).
-func (r *ClusterDexReconciler) deleteChild(ctx context.Context, cr *platformv1alpha1.ClusterDex, obj client.Object) error {
+// deleteChildren removes the rendered Application and ArgoCD baseline
+// ConfigMaps, impersonating the tenant identity when one is configured
+// (§5.6).
+func (r *ClusterDexReconciler) deleteChildren(ctx context.Context, cr *platformv1alpha1.ClusterDex) error {
 	wc, err := impersonatingClient(r.Client, r.RESTConfig, cr.Spec.TenantReference)
 	if err != nil {
 		return err
 	}
-	return wc.Delete(ctx, obj)
+	ns := argoCDNamespace(cr)
+	app := &unstructured.Unstructured{}
+	app.SetGroupVersionKind(applicationGVK)
+	app.SetName(dexApplicationName(cr))
+	app.SetNamespace(ns)
+	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: argoCDConfigMapName, Namespace: ns}}
+	rbacCM := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: argoCDRBACConfigMapName, Namespace: ns}}
+	for _, child := range []client.Object{app, cm, rbacCM} {
+		if err := wc.Delete(ctx, child); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *ClusterDexReconciler) SetupWithManager(mgr ctrl.Manager) error {
