@@ -105,8 +105,12 @@ func argoCDProject(cr *platformv1alpha1.ClusterDex) string {
 
 // splitImageRef splits a full image reference into repository and tag. The
 // tag separator must follow the last path separator so registry ports
-// (host:5000/img:tag) are handled.
+// (host:5000/img:tag) are handled. Digest references (img@sha256:...) are
+// rejected: they would split into an invalid repository:tag pair.
 func splitImageRef(image string) (repository, tag string, err error) {
+	if strings.Contains(image, "@") {
+		return "", "", fmt.Errorf("image %q must use an explicit tag, digest references are not supported", image)
+	}
 	idx := strings.LastIndex(image, ":")
 	if idx < 0 || idx < strings.LastIndex(image, "/") {
 		return "", "", fmt.Errorf("image %q must include an explicit tag", image)

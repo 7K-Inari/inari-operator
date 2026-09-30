@@ -210,6 +210,33 @@ func TestValuesImageOverride(t *testing.T) {
 	}
 }
 
+func TestValuesImageOverrideEdgeCases(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		image   string
+		wantErr bool
+	}{
+		{"registry port", "host:5000/dexidp/dex:v2.42.0", false},
+		{"missing tag", "ghcr.io/dexidp/dex", true},
+		{"digest ref", "ghcr.io/dexidp/dex@sha256:1a2b3c", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cr := testClusterDex()
+			cr.Spec.Dex.Image = tc.image
+			_, err := dexHelmValues(cr)
+			if tc.wantErr && err == nil {
+				t.Fatalf("image %q: expected error, got none", tc.image)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("image %q: unexpected error %v", tc.image, err)
+			}
+		})
+	}
+	if repo, tag, err := splitImageRef("host:5000/dexidp/dex:v2.42.0"); err != nil || repo != "host:5000/dexidp/dex" || tag != "v2.42.0" {
+		t.Fatalf("registry port split = %q %q %v", repo, tag, err)
+	}
+}
+
 func TestValuesHTTPRoute(t *testing.T) {
 	cr := testClusterDex()
 	cr.Spec.Dex.Route = &platformv1alpha1.ClusterDexRoute{
