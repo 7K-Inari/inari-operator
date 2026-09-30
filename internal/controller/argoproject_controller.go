@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -94,9 +95,15 @@ func (r *ArgoProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		destNS = []string{ap.Spec.Namespace}
 	}
 
-	repos := make([]any, 0, len(ap.Spec.SourceRepos))
+	repos := make([]any, 0, len(ap.Spec.SourceRepos)+1)
 	for _, s := range ap.Spec.SourceRepos {
 		repos = append(repos, s)
+	}
+	// Auto-upgrade: tenant projects must allow the official dexidp chart
+	// repository so operator-rendered Dex Applications sync. Unioned in on
+	// every reconcile — existing tenants converge without manual migration.
+	if !slices.Contains(ap.Spec.SourceRepos, dexChartRepoURL) {
+		repos = append(repos, dexChartRepoURL)
 	}
 	dests := make([]any, 0, len(destNS))
 	for _, ns := range destNS {

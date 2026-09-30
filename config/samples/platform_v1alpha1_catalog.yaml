@@ -98,7 +98,15 @@ spec:
   clientSecretRef:
     name: cluster-c1-dex
     namespace: acme
+  dex:
+    # chartVersion pins the official dexidp chart (default 0.25.2).
+    configSecretRef:
+      name: dex-config # ESO/Vault-synced full config.yaml
+      namespace: acme
   argocd:
+    oidcClientSecretRef:
+      name: argocd-dex-client
+      key: client-secret
     adminGroups:
       - /tenant-acme/platform-team
     viewerGroups:
