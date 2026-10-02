@@ -1,3 +1,24 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json"
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Go tool pins invoked via 'go run module@version' in the Makefile (controller-gen, setup-envtest, golangci-lint)",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "go run (?<depName>\\S+)@(?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "go"
+    },
+    {
+      "customType": "regex",
+      "description": "Kubernetes version used by envtest (ENVTEST_K8S_VERSION)",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "ENVTEST_K8S_VERSION \\?= (?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "kubernetes",
+      "datasourceTemplate": "endoflife-date"
+    }
+  ]
 }
