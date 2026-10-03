@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.0](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.8...inari-operator-v0.1.0) (2026-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **operator:** ClusterDex status.valuesConfigMap is replaced by status.dexApplication; spec.argocd.oidcClientSecretRef and spec.dex.configSecretRef are required when the baseline is enabled.
+
+### Features
+
+* **operator:** add HA guardrails to the inari-operator chart ([ce46d5c](https://github.com/7K-Inari/inari-operator/commit/ce46d5c4de07cfe15c41dfcb58add7615c7ca132))
+* **operator:** add HA guardrails to the inari-operator chart ([4a18ebc](https://github.com/7K-Inari/inari-operator/commit/4a18ebcc861421f5c422c95d7b9bf736d5726d5b))
+* **operator:** render cluster-local Dex as ArgoCD Application from the official dexidp chart ([#26](https://github.com/7K-Inari/inari-operator/issues/26)) ([3e25fbf](https://github.com/7K-Inari/inari-operator/commit/3e25fbfda400aedab089ff75c7e084713ea10ddd))
+* **operator:** W3 ClusterDex per-cluster Dex SSO baseline rendering ([7c8e5bc](https://github.com/7K-Inari/inari-operator/commit/7c8e5bc51c2b51037004d130560bbb60fa59d7a7))
+* **operator:** W3 ClusterDex per-cluster Dex SSO baseline rendering ([1329f98](https://github.com/7K-Inari/inari-operator/commit/1329f98a6fb43cacd7ab0f2f8bab6cf5bab7adaf))
+* **release:** per-merge edge releases (vX.Y.Z-&lt;sha&gt; + moving edge channel) ([#25](https://github.com/7K-Inari/inari-operator/issues/25)) ([3732b24](https://github.com/7K-Inari/inari-operator/commit/3732b24b35484f14eacfbaf0872ecb5f9fe13fe9))
+
+
+### Bug Fixes
+
+* **operator:** cap dex issuer host label; add argocd static client to rendered values ([37e78c9](https://github.com/7K-Inari/inari-operator/commit/37e78c9d2bbcdca4f7bdcde3222d560e8e0a310b))
+* **operator:** restore bind grant on admin clusterrole dropped by controller-gen ([3b83ceb](https://github.com/7K-Inari/inari-operator/commit/3b83ceb001c2a41c6e91c680511be390cef698fb))
+
 ## [0.0.8](https://github.com/7K-Inari/inari-operator/compare/inari-operator-v0.0.7...inari-operator-v0.0.8) (2026-09-24)
 
 
