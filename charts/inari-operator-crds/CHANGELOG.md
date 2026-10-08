@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/7K-Inari/inari-operator/compare/inari-operator-crds-v0.1.1...inari-operator-crds-v0.2.0) (2026-10-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **operator:** ClusterDex status.valuesConfigMap is replaced by status.dexApplication; spec.argocd.oidcClientSecretRef and spec.dex.configSecretRef are required when the baseline is enabled.
+
+### Features
+
+* **operator:** render cluster-local Dex as ArgoCD Application from the official dexidp chart ([#26](https://github.com/7K-Inari/inari-operator/issues/26)) ([3e25fbf](https://github.com/7K-Inari/inari-operator/commit/3e25fbfda400aedab089ff75c7e084713ea10ddd))
+* **operator:** W3 ClusterDex per-cluster Dex SSO baseline rendering ([7c8e5bc](https://github.com/7K-Inari/inari-operator/commit/7c8e5bc51c2b51037004d130560bbb60fa59d7a7))
+* **operator:** W3 ClusterDex per-cluster Dex SSO baseline rendering ([1329f98](https://github.com/7K-Inari/inari-operator/commit/1329f98a6fb43cacd7ab0f2f8bab6cf5bab7adaf))
+
 ## [0.1.1](https://github.com/7K-Inari/inari-operator/compare/inari-operator-crds-v0.1.0...inari-operator-crds-v0.1.1) (2026-08-28)
 
 
