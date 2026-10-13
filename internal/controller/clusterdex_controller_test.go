@@ -509,7 +509,7 @@ func TestClusterDexMigrationNoOp(t *testing.T) {
 	res, err := r.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{Name: "never-existed", Namespace: ns(t)},
 	})
-	if err != nil || res.Requeue || res.RequeueAfter != 0 {
+	if err != nil || res != (ctrl.Result{}) {
 		t.Fatalf("reconcile of unknown CR: res=%+v err=%v", res, err)
 	}
 	var cms corev1.ConfigMapList
