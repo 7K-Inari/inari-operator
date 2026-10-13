@@ -1,5 +1,5 @@
 IMG ?= ghcr.io/7k-inari/inari-operator:latest
-CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5
+CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.22.0
 SETUP_ENVTEST ?= go run sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.20
 ENVTEST_K8S_VERSION ?= 1.37.1
 
