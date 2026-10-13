@@ -71,7 +71,7 @@ func (r *ClusterDexReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 	if added {
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Disabled baseline: remove any rendered children and report Ready. The

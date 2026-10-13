@@ -87,7 +87,7 @@ func (r *ArgoProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 	if added {
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 
 	destNS := ap.Spec.DestinationNamespaces

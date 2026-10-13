@@ -86,6 +86,7 @@ func main() {
 		setupLog.Info("keycloak-url not set; KeycloakRealm/KeycloakClient reconcilers disabled")
 	}
 
+	//nolint:staticcheck // SA1019: reconcilers still use record.EventRecorder; migrate to the new events API separately
 	recorder := mgr.GetEventRecorderFor("inari-operator")
 
 	if kcClient != nil {
