@@ -68,7 +68,7 @@ jobs:
         with:
           version: v3.12.0
       - name: Install helm-unittest
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.8.2
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false --version v0.8.2
       - name: CRD drift check
         # config/crd/bases is generated; charts/inari-operator-crds must be a
         # verbatim sync. Fails if api/ markers changed without a chart sync.
