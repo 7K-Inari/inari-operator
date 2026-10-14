@@ -4,7 +4,9 @@
     {
       "customType": "regex",
       "description": "Go tool pins invoked via 'go run module@version' in the Makefile (controller-gen, setup-envtest, golangci-lint)",
-      "managerFilePatterns": ["/^Makefile$/"],
+      "managerFilePatterns": [
+        "/^Makefile$/"
+      ],
       "matchStrings": [
         "go run (?<depName>\\S+)@(?<currentValue>\\S+)"
       ],
@@ -13,12 +15,50 @@
     {
       "customType": "regex",
       "description": "Kubernetes version used by envtest (ENVTEST_K8S_VERSION)",
-      "managerFilePatterns": ["/^Makefile$/"],
+      "managerFilePatterns": [
+        "/^Makefile$/"
+      ],
       "matchStrings": [
         "ENVTEST_K8S_VERSION \\?= (?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
       "depNameTemplate": "kubernetes",
       "datasourceTemplate": "endoflife-date"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Group all non-major updates into a single PR and automerge once checks pass",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pinDigest"
+      ],
+      "groupName": "all non-major dependencies",
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "connect-go v2 / connect-es v2 are a coordinated cross-repo migration (Kandev task M2W1), not a renovate bump",
+      "matchPackageNames": [
+        "connectrpc.com/connect",
+        "@connectrpc/connect",
+        "@bufbuild/protobuf"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "typescript v7 blocked: typescript-eslint has no TS7 support and ts-loader is incompatible; revisit after ecosystem support lands",
+      "matchPackageNames": [
+        "typescript"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
     }
   ]
 }
