@@ -1,7 +1,7 @@
 IMG ?= ghcr.io/7k-inari/inari-operator:latest
-CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.22.0
+CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.23.0
 SETUP_ENVTEST ?= go run sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.20
-ENVTEST_K8S_VERSION ?= 1.37.1
+ENVTEST_K8S_VERSION ?= 1.37.2
 
 .PHONY: build
 build:
@@ -17,7 +17,7 @@ envtest:
 
 .PHONY: lint
 lint:
-	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./...
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run ./...
 
 .PHONY: vet
 vet:
